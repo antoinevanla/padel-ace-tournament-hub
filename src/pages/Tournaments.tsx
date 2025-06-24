@@ -1,216 +1,157 @@
 
-import { useState } from "react";
-import { Calendar, MapPin, Users, Trophy, Search, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Calendar, MapPin, Users, Trophy, DollarSign } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
 
 const Tournaments = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { user } = useAuth();
 
-  const tournaments = [
-    {
-      id: 1,
-      name: "Madrid Open Padel Championship",
-      date: "2024-07-15",
-      location: "Madrid, Spain",
-      participants: 64,
-      maxParticipants: 64,
-      prize: "€50,000",
-      status: "Registration Open",
-      category: "Professional",
-      level: "Advanced"
+  const { data: tournaments, isLoading } = useQuery({
+    queryKey: ["tournaments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tournaments")
+        .select(`
+          *,
+          organizer:profiles(full_name),
+          registrations:tournament_registrations(count)
+        `)
+        .order("start_date", { ascending: true });
+      
+      if (error) throw error;
+      return data;
     },
-    {
-      id: 2,
-      name: "Barcelona Masters",
-      date: "2024-08-22",
-      location: "Barcelona, Spain",
-      participants: 0,
-      maxParticipants: 32,
-      prize: "€25,000",
-      status: "Coming Soon",
-      category: "Professional",
-      level: "Advanced"
-    },
-    {
-      id: 3,
-      name: "Valencia Cup",
-      date: "2024-09-10",
-      location: "Valencia, Spain",
-      participants: 28,
-      maxParticipants: 48,
-      prize: "€35,000",
-      status: "Registration Open",
-      category: "Professional",
-      level: "Intermediate"
-    },
-    {
-      id: 4,
-      name: "Sevilla Amateur Open",
-      date: "2024-07-28",
-      location: "Sevilla, Spain",
-      participants: 16,
-      maxParticipants: 24,
-      prize: "€5,000",
-      status: "Registration Open",
-      category: "Amateur",
-      level: "Beginner"
-    },
-    {
-      id: 5,
-      name: "Bilbao Championship",
-      date: "2024-06-30",
-      location: "Bilbao, Spain",
-      participants: 32,
-      maxParticipants: 32,
-      prize: "€15,000",
-      status: "Registration Closed",
-      category: "Professional",
-      level: "Advanced"
-    }
-  ];
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Registration Open":
-        return "bg-green-500";
-      case "Registration Closed":
-        return "bg-red-500";
-      case "Coming Soon":
-        return "bg-blue-500";
+      case "upcoming":
+        return "bg-blue-100 text-blue-800";
+      case "active":
+        return "bg-green-100 text-green-800";
+      case "completed":
+        return "bg-gray-100 text-gray-800";
       default:
-        return "bg-gray-500";
+        return "bg-red-100 text-red-800";
     }
   };
 
-  const filteredTournaments = tournaments.filter(tournament => {
-    const matchesSearch = tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tournament.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || tournament.status.toLowerCase().includes(statusFilter.toLowerCase());
-    
-    return matchesSearch && matchesStatus;
-  });
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">Loading tournaments...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Padel Tournaments
-          </h1>
-          <p className="text-xl text-gray-600">
-            Discover and register for exciting padel competitions worldwide
-          </p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Tournaments</h1>
+          <p className="text-gray-600">Join exciting padel tournaments and compete with players from around the world</p>
         </div>
-
-        {/* Search and Filters */}
-        <div className="bg-white p-6 rounded-lg shadow-sm mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search tournaments or locations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-4">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Tournaments</SelectItem>
-                  <SelectItem value="registration open">Registration Open</SelectItem>
-                  <SelectItem value="coming soon">Coming Soon</SelectItem>
-                  <SelectItem value="registration closed">Registration Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Tournament Cards */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {filteredTournaments.map((tournament) => (
-            <Card key={tournament.id} className="hover:shadow-lg transition-shadow duration-300">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-xl mb-2">{tournament.name}</CardTitle>
-                    <div className="flex gap-2">
-                      <Badge variant="outline">{tournament.category}</Badge>
-                      <Badge variant="secondary">{tournament.level}</Badge>
-                    </div>
-                  </div>
-                  <Badge className={getStatusColor(tournament.status)}>
-                    {tournament.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="flex items-center text-gray-600">
-                      <Calendar className="h-4 w-4 mr-2 text-blue-600" />
-                      <span>{new Date(tournament.date).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                      <span>{tournament.location}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <Users className="h-4 w-4 mr-2 text-blue-600" />
-                      <span>{tournament.participants}/{tournament.maxParticipants} players</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <Trophy className="h-4 w-4 mr-2 text-blue-600" />
-                      <span className="font-semibold text-blue-600">{tournament.prize}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${(tournament.participants / tournament.maxParticipants) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    {tournament.maxParticipants - tournament.participants} spots remaining
-                  </p>
-
-                  <div className="flex gap-2 pt-4">
-                    <Button className="flex-1">View Details</Button>
-                    <Button 
-                      variant="outline" 
-                      className="flex-1"
-                      disabled={tournament.status === "Registration Closed"}
-                    >
-                      {tournament.status === "Registration Open" ? "Register" : 
-                       tournament.status === "Coming Soon" ? "Notify Me" : "Closed"}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredTournaments.length === 0 && (
-          <div className="text-center py-12">
-            <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No tournaments found</h3>
-            <p className="text-gray-600">Try adjusting your search criteria</p>
-          </div>
+        {user && (
+          <Button>
+            Create Tournament
+          </Button>
         )}
       </div>
+
+      {!user && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-blue-800">
+            <Link to="/auth" className="font-medium hover:underline">
+              Sign in
+            </Link>
+            {" "}to register for tournaments and create your own events.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {tournaments?.map((tournament) => (
+          <Card key={tournament.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              {tournament.image_url && (
+                <img
+                  src={tournament.image_url}
+                  alt={tournament.name}
+                  className="w-full h-48 object-cover rounded-lg mb-4"
+                />
+              )}
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-xl">{tournament.name}</CardTitle>
+                <Badge className={getStatusColor(tournament.status)}>
+                  {tournament.status}
+                </Badge>
+              </div>
+              <CardDescription>{tournament.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center text-sm text-gray-600">
+                <Calendar className="h-4 w-4 mr-2" />
+                {new Date(tournament.start_date).toLocaleDateString()} - {new Date(tournament.end_date).toLocaleDateString()}
+              </div>
+              
+              <div className="flex items-center text-sm text-gray-600">
+                <MapPin className="h-4 w-4 mr-2" />
+                {tournament.location}
+              </div>
+
+              <div className="flex items-center text-sm text-gray-600">
+                <Users className="h-4 w-4 mr-2" />
+                {tournament.registrations?.[0]?.count || 0} / {tournament.max_participants} participants
+              </div>
+
+              {tournament.entry_fee > 0 && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Entry fee: ${tournament.entry_fee}
+                </div>
+              )}
+
+              {tournament.prize_pool > 0 && (
+                <div className="flex items-center text-sm text-green-600">
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Prize pool: ${tournament.prize_pool}
+                </div>
+              )}
+
+              <div className="pt-4">
+                {tournament.status === "upcoming" && user ? (
+                  <Button className="w-full">
+                    Register Now
+                  </Button>
+                ) : tournament.status === "upcoming" ? (
+                  <Link to="/auth">
+                    <Button variant="outline" className="w-full">
+                      Sign in to Register
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button variant="outline" className="w-full">
+                    View Details
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {(!tournaments || tournaments.length === 0) && (
+        <div className="text-center py-12">
+          <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No tournaments yet</h3>
+          <p className="text-gray-600">Be the first to create a tournament!</p>
+        </div>
+      )}
     </div>
   );
 };
