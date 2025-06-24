@@ -43,8 +43,12 @@ export const AuthForm = () => {
           title: "Sign up successful!",
           description: "Please check your email to confirm your account.",
         });
+        setEmail("");
+        setPassword("");
+        setFullName("");
       }
     } catch (error) {
+      console.error("Sign up error:", error);
       toast({
         title: "An error occurred",
         description: "Please try again later.",
@@ -78,6 +82,7 @@ export const AuthForm = () => {
         });
       }
     } catch (error) {
+      console.error("Sign in error:", error);
       toast({
         title: "An error occurred",
         description: "Please try again later.",
