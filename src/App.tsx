@@ -13,6 +13,8 @@ import Players from "./pages/Players";
 import Gallery from "./pages/Gallery";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import TournamentDetail from "./pages/TournamentDetail";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
