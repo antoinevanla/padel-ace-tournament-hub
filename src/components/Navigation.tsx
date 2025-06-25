@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Trophy, Calendar, Target, Users, Camera, LogIn, LogOut, User } from "lucide-react";
+import { Menu, X, Trophy, Calendar, Target, Users, Camera, LogIn, LogOut, User, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -10,11 +9,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
+
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   const navItems = [
     { path: "/", label: "Home", icon: Trophy },
@@ -69,6 +86,14 @@ export const Navigation = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {userProfile && ['admin', 'organizer'].includes(userProfile.role || '') && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
@@ -127,15 +152,25 @@ export const Navigation = () => {
               
               {/* Mobile Auth */}
               {user ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={signOut}
-                  className="flex items-center space-x-2 justify-start"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Sign Out</span>
-                </Button>
+                <>
+                  {userProfile && ['admin', 'organizer'].includes(userProfile.role || '') && (
+                    <Link to="/admin" onClick={() => setIsOpen(false)}>
+                      <Button variant="ghost" size="sm" className="flex items-center space-x-2 justify-start w-full">
+                        <Settings className="h-4 w-4" />
+                        <span>Admin Panel</span>
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={signOut}
+                    className="flex items-center space-x-2 justify-start"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                  </Button>
+                </>
               ) : (
                 <Link to="/auth" onClick={() => setIsOpen(false)}>
                   <Button variant="ghost" size="sm" className="flex items-center space-x-2 justify-start w-full">

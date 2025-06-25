@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,22 @@ import { Link } from "react-router-dom";
 
 const Tournaments = () => {
   const { user } = useAuth();
+
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   const { data: tournaments, isLoading } = useQuery({
     queryKey: ["tournaments"],
@@ -56,10 +71,12 @@ const Tournaments = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Tournaments</h1>
           <p className="text-gray-600">Join exciting padel tournaments and compete with players from around the world</p>
         </div>
-        {user && (
-          <Button>
-            Create Tournament
-          </Button>
+        {user && userProfile && ['admin', 'organizer'].includes(userProfile.role || '') && (
+          <Link to="/admin">
+            <Button>
+              Manage Tournaments
+            </Button>
+          </Link>
         )}
       </div>
 
@@ -124,21 +141,11 @@ const Tournaments = () => {
               )}
 
               <div className="pt-4">
-                {tournament.status === "upcoming" && user ? (
+                <Link to={`/tournament/${tournament.id}`}>
                   <Button className="w-full">
-                    Register Now
-                  </Button>
-                ) : tournament.status === "upcoming" ? (
-                  <Link to="/auth">
-                    <Button variant="outline" className="w-full">
-                      Sign in to Register
-                    </Button>
-                  </Link>
-                ) : (
-                  <Button variant="outline" className="w-full">
                     View Details
                   </Button>
-                )}
+                </Link>
               </div>
             </CardContent>
           </Card>
