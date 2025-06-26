@@ -20,18 +20,27 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
 
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ registrationId, status }: { registrationId: string; status: string }) => {
+      console.log("Updating payment status for registration:", registrationId, "to:", status);
       const { error } = await supabase
         .from("tournament_registrations")
         .update({ payment_status: status })
         .eq("id", registrationId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating payment status:", error);
+        throw error;
+      }
+      console.log("Payment status updated successfully");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       toast({ title: "Payment status updated successfully" });
+      // Invalidate multiple queries to ensure UI updates
+      queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
+      queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
     },
     onError: (error) => {
+      console.error("Payment status update error:", error);
       toast({ 
         title: "Error updating payment status", 
         description: error.message,
@@ -70,8 +79,12 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
   };
 
   const handlePaymentStatusChange = (registrationId: string, newStatus: string) => {
+    console.log("Handling payment status change:", registrationId, newStatus);
     updatePaymentStatusMutation.mutate({ registrationId, status: newStatus });
   };
+
+  console.log("ParticipantManagement - Tournament ID:", tournamentId);
+  console.log("ParticipantManagement - Participants:", participants);
 
   return (
     <Card>
@@ -89,20 +102,22 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar>
-                      <AvatarImage src={registration.player.avatar_url || ""} />
+                      <AvatarImage src={registration.player?.avatar_url || ""} />
                       <AvatarFallback>
-                        {registration.player.full_name?.[0] || "P"}
+                        {registration.player?.full_name?.[0] || registration.player?.email?.[0] || "P"}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <div className="font-medium">{registration.player.full_name}</div>
+                      <div className="font-medium">
+                        {registration.player?.full_name || registration.player?.email?.split('@')[0] || "Unknown Player"}
+                      </div>
                       <div className="text-sm text-gray-600 flex items-center">
                         <Mail className="h-3 w-3 mr-1" />
-                        {registration.player.email}
+                        {registration.player?.email || "No email"}
                       </div>
                       {registration.partner && (
                         <div className="text-sm text-gray-600 mt-1">
-                          Partner: {registration.partner.full_name}
+                          Partner: {registration.partner.full_name || registration.partner.email?.split('@')[0] || "Unknown"}
                           {registration.partner.email && (
                             <span className="text-xs ml-2">({registration.partner.email})</span>
                           )}
@@ -112,7 +127,7 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
                   </div>
                   
                   <div className="flex flex-col items-end space-y-2">
-                    {registration.player.skill_level && (
+                    {registration.player?.skill_level && (
                       <Badge className={getSkillColor(registration.player.skill_level)}>
                         <Star className="h-3 w-3 mr-1" />
                         {getSkillLevel(registration.player.skill_level)}
@@ -120,8 +135,9 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
                     )}
                     
                     <Select
-                      value={registration.payment_status}
+                      value={registration.payment_status || "pending"}
                       onValueChange={(value) => handlePaymentStatusChange(registration.id, value)}
+                      disabled={updatePaymentStatusMutation.isPending}
                     >
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -140,16 +156,16 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
                     Registered: {new Date(registration.registration_date).toLocaleDateString()}
                   </span>
                   <Badge 
-                    className={getPaymentStatusColor(registration.payment_status)}
+                    className={getPaymentStatusColor(registration.payment_status || "pending")}
                     variant="secondary"
                   >
-                    {registration.payment_status}
+                    {registration.payment_status || "pending"}
                   </Badge>
                 </div>
 
                 {registration.partner && registration.partner.skill_level && (
-                  <div className="text-sm text-gray-600">
-                    Partner skill level: 
+                  <div className="text-sm text-gray-600 flex items-center">
+                    <span className="mr-2">Partner skill level:</span>
                     <Badge className={getSkillColor(registration.partner.skill_level)} variant="outline">
                       <Star className="h-3 w-3 mr-1" />
                       {getSkillLevel(registration.partner.skill_level)}

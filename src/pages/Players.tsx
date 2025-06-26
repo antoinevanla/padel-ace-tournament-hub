@@ -17,6 +17,7 @@ const Players = () => {
   const { data: players, isLoading } = useQuery({
     queryKey: ["players"],
     queryFn: async () => {
+      console.log("Fetching players data...");
       const { data, error } = await supabase
         .from("profiles")
         .select(`
@@ -30,25 +31,35 @@ const Players = () => {
         `)
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching players:", error);
+        throw error;
+      }
+      console.log("Players data fetched:", data);
       return data;
     },
   });
 
   const updateSkillLevelMutation = useMutation({
     mutationFn: async ({ playerId, skillLevel }: { playerId: string; skillLevel: number }) => {
+      console.log("Updating skill level for player:", playerId, "to level:", skillLevel);
       const { error } = await supabase
         .from("profiles")
         .update({ skill_level: skillLevel })
         .eq("id", playerId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating skill level:", error);
+        throw error;
+      }
+      console.log("Skill level updated successfully");
     },
     onSuccess: () => {
       toast({ title: "Skill level updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["players"] });
     },
     onError: (error) => {
+      console.error("Mutation error:", error);
       toast({ 
         title: "Error updating skill level", 
         description: error.message,
@@ -99,6 +110,7 @@ const Players = () => {
 
   const handleSkillLevelChange = (playerId: string, newLevel: string) => {
     const skillLevel = parseInt(newLevel);
+    console.log("Handling skill level change:", playerId, skillLevel);
     updateSkillLevelMutation.mutate({ playerId, skillLevel });
   };
 
@@ -112,22 +124,19 @@ const Players = () => {
     );
   }
 
-  // Filter players who have at least one tournament registration
-  const registeredPlayers = players?.filter(player => 
-    player.tournament_registrations && player.tournament_registrations.length > 0
-  ) || [];
+  console.log("Total players found:", players?.length || 0);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Players</h1>
         <p className="text-gray-600">
-          Meet the padel community and discover talented players ({registeredPlayers.length} registered)
+          Meet the padel community and discover talented players ({players?.length || 0} total players)
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {registeredPlayers.map((player) => (
+        {players?.map((player) => (
           <Card key={player.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
               <Avatar className="w-20 h-20 mx-auto mb-4">
@@ -240,10 +249,10 @@ const Players = () => {
         ))}
       </div>
 
-      {registeredPlayers.length === 0 && (
+      {(!players || players.length === 0) && (
         <div className="text-center py-12">
           <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No registered players yet</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No players found</h3>
           <p className="text-gray-600">Players will appear here as they register for tournaments.</p>
         </div>
       )}

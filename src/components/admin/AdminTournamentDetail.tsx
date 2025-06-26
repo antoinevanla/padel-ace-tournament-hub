@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,13 +18,18 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
   const { data: tournament } = useQuery({
     queryKey: ["tournament", tournamentId],
     queryFn: async () => {
+      console.log("Fetching tournament:", tournamentId);
       const { data, error } = await supabase
         .from("tournaments")
         .select("*")
         .eq("id", tournamentId)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching tournament:", error);
+        throw error;
+      }
+      console.log("Tournament data:", data);
       return data;
     },
   });
@@ -31,6 +37,7 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
   const { data: participants } = useQuery({
     queryKey: ["tournament-participants", tournamentId],
     queryFn: async () => {
+      console.log("Fetching participants for tournament:", tournamentId);
       const { data, error } = await supabase
         .from("tournament_registrations")
         .select(`
@@ -40,7 +47,11 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         `)
         .eq("tournament_id", tournamentId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching participants:", error);
+        throw error;
+      }
+      console.log("Participants data:", data);
       return data;
     },
   });
@@ -48,6 +59,7 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
   const { data: matches } = useQuery({
     queryKey: ["tournament-matches", tournamentId],
     queryFn: async () => {
+      console.log("Fetching matches for tournament:", tournamentId);
       const { data, error } = await supabase
         .from("matches")
         .select(`
@@ -61,7 +73,11 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         .order("round_name", { ascending: true })
         .order("scheduled_time", { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching matches:", error);
+        throw error;
+      }
+      console.log("Matches data:", data);
       return data;
     },
   });
@@ -118,7 +134,11 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         </TabsContent>
 
         <TabsContent value="registration">
-          <TournamentRegistration tournament={tournament} />
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">Tournament Registration</h2>
+            <p className="text-gray-600">Players can register for this tournament using the form below.</p>
+            <TournamentRegistration tournament={tournament} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
