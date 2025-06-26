@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Edit, Trash2, Users, Calendar, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Calendar, MapPin, Settings } from "lucide-react";
 import TournamentForm from "./TournamentForm";
+import AdminTournamentDetail from "./AdminTournamentDetail";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +34,7 @@ const AdminPanel = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingTournament, setEditingTournament] = useState(null);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
 
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile", user?.id],
@@ -126,6 +127,24 @@ const AdminPanel = () => {
     );
   }
 
+  // If a tournament is selected, show the detail view
+  if (selectedTournamentId) {
+    return (
+      <div>
+        <div className="container mx-auto px-4 py-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setSelectedTournamentId(null)}
+            className="mb-4"
+          >
+            ← Back to Tournaments
+          </Button>
+        </div>
+        <AdminTournamentDetail tournamentId={selectedTournamentId} />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -200,6 +219,15 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setSelectedTournamentId(tournament.id)}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Manage
+                  </Button>
+
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">

@@ -44,6 +44,27 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
     },
   });
 
+  const { data: matches } = useQuery({
+    queryKey: ["tournament-matches", tournamentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("matches")
+        .select(`
+          *,
+          team1_player1:profiles!matches_team1_player1_id_fkey(full_name),
+          team1_player2:profiles!matches_team1_player2_id_fkey(full_name),
+          team2_player1:profiles!matches_team2_player1_id_fkey(full_name),
+          team2_player2:profiles!matches_team2_player2_id_fkey(full_name)
+        `)
+        .eq("tournament_id", tournamentId)
+        .order("round_name", { ascending: true })
+        .order("scheduled_time", { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   if (!tournament) return <div>Loading...</div>;
 
   return (
@@ -53,16 +74,16 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         <p className="text-gray-600">Tournament Management</p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="matches" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="structure">Structure</TabsTrigger>
           <TabsTrigger value="matches">Matches</TabsTrigger>
+          <TabsTrigger value="structure">Structure</TabsTrigger>
           <TabsTrigger value="participants">Participants</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
-          <TournamentRegistration tournament={tournament} />
+        <TabsContent value="matches">
+          <MatchManagement tournamentId={tournamentId} />
         </TabsContent>
 
         <TabsContent value="structure">
@@ -72,10 +93,6 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
               participants={participants} 
             />
           )}
-        </TabsContent>
-
-        <TabsContent value="matches">
-          <MatchManagement tournamentId={tournamentId} />
         </TabsContent>
 
         <TabsContent value="participants">
@@ -105,6 +122,10 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="overview">
+          <TournamentRegistration tournament={tournament} />
         </TabsContent>
       </Tabs>
     </div>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, MapPin, Users, Settings } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Settings, Trophy, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -16,6 +16,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface MatchManagementProps {
   tournamentId: string;
@@ -29,6 +36,9 @@ interface Match {
   status: string;
   team1_sets_won: number | null;
   team2_sets_won: number | null;
+  team1_score: number | null;
+  team2_score: number | null;
+  winner_team: number | null;
   team1_player1: { full_name: string } | null;
   team1_player2: { full_name: string } | null;
   team2_player1: { full_name: string } | null;
@@ -38,7 +48,8 @@ interface Match {
 const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [editingMatch, setEditingMatch] = useState<any>(null);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [scoringMatch, setScoringMatch] = useState<Match | null>(null);
   const [bulkScheduleData, setBulkScheduleData] = useState({
     courts: 4,
     matchDuration: 90,
@@ -80,6 +91,7 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
       toast({ title: "Match updated successfully!" });
       queryClient.invalidateQueries({ queryKey: ["tournament-matches"] });
       setEditingMatch(null);
+      setScoringMatch(null);
     },
     onError: (error) => {
       toast({ 
@@ -164,6 +176,23 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
       case "completed": return "bg-green-100 text-green-800";
       default: return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const handleScoreSubmit = (match: Match, team1Sets: number, team2Sets: number, team1Score: number, team2Score: number) => {
+    const winnerTeam = team1Sets > team2Sets ? 1 : 2;
+    const status = "completed";
+
+    updateMatchMutation.mutate({
+      matchId: match.id,
+      updates: {
+        team1_sets_won: team1Sets,
+        team2_sets_won: team2Sets,
+        team1_score: team1Score,
+        team2_score: team2Score,
+        winner_team: winnerTeam,
+        status: status,
+      }
+    });
   };
 
   if (isLoading) return <div>Loading matches...</div>;
@@ -278,8 +307,13 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
                       </div>
                       
                       {match.status === "completed" && (
-                        <div className="text-center text-lg font-bold">
-                          {match.team1_sets_won} - {match.team2_sets_won}
+                        <div className="text-center">
+                          <div className="text-lg font-bold mb-1">
+                            {match.team1_sets_won} - {match.team2_sets_won} (sets)
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Score: {match.team1_score} - {match.team2_score}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -309,8 +343,20 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
                       size="sm"
                       onClick={() => setEditingMatch(match)}
                     >
+                      <Edit className="h-4 w-4 mr-1" />
                       Edit Schedule
                     </Button>
+                    
+                    {match.status !== "completed" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScoringMatch(match)}
+                      >
+                        <Trophy className="h-4 w-4 mr-1" />
+                        Add Score
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -319,57 +365,191 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
         </Card>
       ))}
 
+      {/* Edit Schedule Dialog */}
       {editingMatch && (
         <Dialog open={!!editingMatch} onOpenChange={() => setEditingMatch(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Match Schedule</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="scheduledTime">Scheduled Time</Label>
-                <Input
-                  id="scheduledTime"
-                  type="datetime-local"
-                  defaultValue={editingMatch.scheduled_time 
-                    ? new Date(editingMatch.scheduled_time).toISOString().slice(0, 16)
-                    : ""
-                  }
-                  onChange={(e) => setEditingMatch(prev => ({
-                    ...prev,
-                    scheduled_time: e.target.value
-                  }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="courtNumber">Court Number</Label>
-                <Input
-                  id="courtNumber"
-                  type="number"
-                  defaultValue={editingMatch.court_number || ""}
-                  onChange={(e) => setEditingMatch(prev => ({
-                    ...prev,
-                    court_number: parseInt(e.target.value)
-                  }))}
-                />
-              </div>
-              <Button
-                onClick={() => updateMatchMutation.mutate({
-                  matchId: editingMatch.id,
-                  updates: {
-                    scheduled_time: editingMatch.scheduled_time,
-                    court_number: editingMatch.court_number,
-                  }
-                })}
-                disabled={updateMatchMutation.isPending}
-                className="w-full"
-              >
-                Update Match
-              </Button>
-            </div>
+            <MatchScheduleForm 
+              match={editingMatch}
+              onSubmit={(updates) => updateMatchMutation.mutate({
+                matchId: editingMatch.id,
+                updates
+              })}
+              onCancel={() => setEditingMatch(null)}
+            />
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Score Entry Dialog */}
+      {scoringMatch && (
+        <Dialog open={!!scoringMatch} onOpenChange={() => setScoringMatch(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Match Score</DialogTitle>
+            </DialogHeader>
+            <MatchScoreForm 
+              match={scoringMatch}
+              onSubmit={handleScoreSubmit}
+              onCancel={() => setScoringMatch(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+};
+
+// Separate component for match schedule editing
+const MatchScheduleForm = ({ match, onSubmit, onCancel }: {
+  match: Match;
+  onSubmit: (updates: any) => void;
+  onCancel: () => void;
+}) => {
+  const [scheduledTime, setScheduledTime] = useState(
+    match.scheduled_time ? new Date(match.scheduled_time).toISOString().slice(0, 16) : ""
+  );
+  const [courtNumber, setCourtNumber] = useState(match.court_number?.toString() || "");
+  const [status, setStatus] = useState(match.status);
+
+  const handleSubmit = () => {
+    onSubmit({
+      scheduled_time: scheduledTime || null,
+      court_number: courtNumber ? parseInt(courtNumber) : null,
+      status: status,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="scheduledTime">Scheduled Time</Label>
+        <Input
+          id="scheduledTime"
+          type="datetime-local"
+          value={scheduledTime}
+          onChange={(e) => setScheduledTime(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor="courtNumber">Court Number</Label>
+        <Input
+          id="courtNumber"
+          type="number"
+          value={courtNumber}
+          onChange={(e) => setCourtNumber(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor="status">Status</Label>
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={handleSubmit} className="flex-1">
+          Update Match
+        </Button>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Separate component for score entry
+const MatchScoreForm = ({ match, onSubmit, onCancel }: {
+  match: Match;
+  onSubmit: (match: Match, team1Sets: number, team2Sets: number, team1Score: number, team2Score: number) => void;
+  onCancel: () => void;
+}) => {
+  const [team1Sets, setTeam1Sets] = useState(match.team1_sets_won || 0);
+  const [team2Sets, setTeam2Sets] = useState(match.team2_sets_won || 0);
+  const [team1Score, setTeam1Score] = useState(match.team1_score || 0);
+  const [team2Score, setTeam2Score] = useState(match.team2_score || 0);
+
+  const handleSubmit = () => {
+    onSubmit(match, team1Sets, team2Sets, team1Score, team2Score);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="text-center mb-4">
+        <div className="font-medium">
+          {match.team1_player1?.full_name}
+          {match.team1_player2 && ` & ${match.team1_player2.full_name}`}
+        </div>
+        <div className="text-gray-400 my-2">VS</div>
+        <div className="font-medium">
+          {match.team2_player1?.full_name}
+          {match.team2_player2 && ` & ${match.team2_player2.full_name}`}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Team 1 Sets Won</Label>
+          <Input
+            type="number"
+            min="0"
+            max="3"
+            value={team1Sets}
+            onChange={(e) => setTeam1Sets(parseInt(e.target.value) || 0)}
+          />
+        </div>
+        <div>
+          <Label>Team 2 Sets Won</Label>
+          <Input
+            type="number"
+            min="0"
+            max="3"
+            value={team2Sets}
+            onChange={(e) => setTeam2Sets(parseInt(e.target.value) || 0)}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Team 1 Total Score</Label>
+          <Input
+            type="number"
+            min="0"
+            value={team1Score}
+            onChange={(e) => setTeam1Score(parseInt(e.target.value) || 0)}
+          />
+        </div>
+        <div>
+          <Label>Team 2 Total Score</Label>
+          <Input
+            type="number"
+            min="0"
+            value={team2Score}
+            onChange={(e) => setTeam2Score(parseInt(e.target.value) || 0)}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleSubmit} className="flex-1">
+          Save Score
+        </Button>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 };
