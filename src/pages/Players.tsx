@@ -1,12 +1,19 @@
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { Users, Star, Trophy, Calendar, Mail } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Players = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
   const { data: players, isLoading } = useQuery({
     queryKey: ["players"],
     queryFn: async () => {
@@ -17,13 +24,36 @@ const Players = () => {
           tournament_registrations(
             id,
             payment_status,
-            tournament:tournaments(name)
+            registration_date,
+            tournament:tournaments(name, start_date)
           )
         `)
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       return data;
+    },
+  });
+
+  const updateSkillLevelMutation = useMutation({
+    mutationFn: async ({ playerId, skillLevel }: { playerId: string; skillLevel: number }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ skill_level: skillLevel })
+        .eq("id", playerId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Skill level updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
+    },
+    onError: (error) => {
+      toast({ 
+        title: "Error updating skill level", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -67,6 +97,13 @@ const Players = () => {
     }
   };
 
+  const handleSkillLevelChange = (playerId: string, newLevel: string) => {
+    const skillLevel = parseInt(newLevel);
+    updateSkillLevelMutation.mutate({ playerId, skillLevel });
+  };
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'organizer';
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -75,17 +112,22 @@ const Players = () => {
     );
   }
 
+  // Filter players who have at least one tournament registration
+  const registeredPlayers = players?.filter(player => 
+    player.tournament_registrations && player.tournament_registrations.length > 0
+  ) || [];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Players</h1>
         <p className="text-gray-600">
-          Meet the padel community and discover talented players ({players?.length || 0} registered)
+          Meet the padel community and discover talented players ({registeredPlayers.length} registered)
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {players?.map((player) => (
+        {registeredPlayers.map((player) => (
           <Card key={player.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
               <Avatar className="w-20 h-20 mx-auto mb-4">
@@ -119,15 +161,36 @@ const Players = () => {
                 </span>
               </div>
 
-              {player.skill_level && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center text-gray-600">
-                    <Star className="h-4 w-4 mr-2" />
-                    Skill Level
-                  </span>
-                  <span className="font-medium">{player.skill_level}/10</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center text-gray-600">
+                  <Star className="h-4 w-4 mr-2" />
+                  Skill Level
+                </span>
+                {isAdmin ? (
+                  <Select
+                    value={player.skill_level?.toString() || "1"}
+                    onValueChange={(value) => handleSkillLevelChange(player.id, value)}
+                  >
+                    <SelectTrigger className="w-24 h-6 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 (Beginner)</SelectItem>
+                      <SelectItem value="2">2 (Beginner)</SelectItem>
+                      <SelectItem value="3">3 (Beginner)</SelectItem>
+                      <SelectItem value="4">4 (Intermediate)</SelectItem>
+                      <SelectItem value="5">5 (Intermediate)</SelectItem>
+                      <SelectItem value="6">6 (Intermediate)</SelectItem>
+                      <SelectItem value="7">7 (Advanced)</SelectItem>
+                      <SelectItem value="8">8 (Advanced)</SelectItem>
+                      <SelectItem value="9">9 (Expert)</SelectItem>
+                      <SelectItem value="10">10 (Expert)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="font-medium">{player.skill_level || 1}/10</span>
+                )}
+              </div>
 
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center text-gray-600">
@@ -141,7 +204,7 @@ const Players = () => {
 
               {player.tournament_registrations && player.tournament_registrations.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-700">Recent Registrations:</div>
+                  <div className="text-sm font-medium text-gray-700">Recent Tournaments:</div>
                   {player.tournament_registrations.slice(0, 2).map((reg: any) => (
                     <div key={reg.id} className="flex items-center justify-between text-xs">
                       <span className="truncate max-w-[100px]" title={reg.tournament?.name}>
@@ -155,6 +218,11 @@ const Players = () => {
                       </Badge>
                     </div>
                   ))}
+                  {player.tournament_registrations.length > 2 && (
+                    <div className="text-xs text-gray-500">
+                      +{player.tournament_registrations.length - 2} more
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -172,11 +240,11 @@ const Players = () => {
         ))}
       </div>
 
-      {(!players || players.length === 0) && (
+      {registeredPlayers.length === 0 && (
         <div className="text-center py-12">
           <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No players yet</h3>
-          <p className="text-gray-600">Players will appear here as they join the community.</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No registered players yet</h3>
+          <p className="text-gray-600">Players will appear here as they register for tournaments.</p>
         </div>
       )}
     </div>

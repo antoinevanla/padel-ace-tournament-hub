@@ -34,6 +34,8 @@ interface TeamStats {
   points: number;
   qualified?: boolean;
   eliminated?: boolean;
+  player1Id: string;
+  player2Id?: string;
 }
 
 const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
@@ -53,8 +55,7 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
           team2_player1:profiles!matches_team2_player1_id_fkey(full_name),
           team2_player2:profiles!matches_team2_player2_id_fkey(full_name)
         `)
-        .eq("tournament_id", tournamentId)
-        .eq("status", "completed");
+        .eq("tournament_id", tournamentId);
       
       if (error) throw error;
       return data;
@@ -63,23 +64,40 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
 
   const generateKnockoutMutation = useMutation({
     mutationFn: async (qualifiedTeams: TeamStats[]) => {
-      // Create knockout matches based on qualified teams
+      console.log("Generating knockout stage with teams:", qualifiedTeams);
+      
+      if (qualifiedTeams.length < 2) {
+        throw new Error("Need at least 2 qualified teams to generate knockout stage");
+      }
+
+      // Determine the round name based on number of teams
+      const getRoundName = (teamCount: number) => {
+        if (teamCount === 2) return "Final";
+        if (teamCount <= 4) return "Semi-Final";
+        if (teamCount <= 8) return "Quarter-Final";
+        if (teamCount <= 16) return "Round of 16";
+        return `Round of ${teamCount}`;
+      };
+
+      const roundName = getRoundName(qualifiedTeams.length);
       const knockoutMatches = [];
       
-      // Simple quarter-final pairing (can be made more sophisticated)
+      // Simple pairing: team 1 vs team 2, team 3 vs team 4, etc.
       for (let i = 0; i < qualifiedTeams.length; i += 2) {
         if (qualifiedTeams[i + 1]) {
           knockoutMatches.push({
             tournament_id: tournamentId,
-            round_name: "Quarter-Final",
-            team1_player1_id: qualifiedTeams[i].teamId.split('-')[0],
-            team1_player2_id: qualifiedTeams[i].teamId.split('-')[1] || null,
-            team2_player1_id: qualifiedTeams[i + 1].teamId.split('-')[0],
-            team2_player2_id: qualifiedTeams[i + 1].teamId.split('-')[1] || null,
+            round_name: roundName,
+            team1_player1_id: qualifiedTeams[i].player1Id,
+            team1_player2_id: qualifiedTeams[i].player2Id || null,
+            team2_player1_id: qualifiedTeams[i + 1].player1Id,
+            team2_player2_id: qualifiedTeams[i + 1].player2Id || null,
             status: "scheduled" as const,
           });
         }
       }
+
+      console.log("Creating knockout matches:", knockoutMatches);
 
       // Insert knockout matches
       for (const match of knockoutMatches) {
@@ -89,12 +107,15 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
         
         if (error) throw error;
       }
+
+      return knockoutMatches.length;
     },
-    onSuccess: () => {
-      toast({ title: "Knockout stage generated successfully!" });
+    onSuccess: (matchCount) => {
+      toast({ title: `Knockout stage generated successfully! Created ${matchCount} matches.` });
       queryClient.invalidateQueries({ queryKey: ["tournament-matches"] });
     },
     onError: (error) => {
+      console.error("Error generating knockout stage:", error);
       toast({ 
         title: "Failed to generate knockout stage", 
         description: error.message,
@@ -106,13 +127,13 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
   const calculateGroupStandings = (): Record<string, TeamStats[]> => {
     if (!matches) return {};
 
-    const groupMatches = matches.filter(m => 
-      m.round_name.toLowerCase().includes('group')
+    const completedMatches = matches.filter(m => 
+      m.round_name.toLowerCase().includes('group') && m.status === 'completed'
     );
 
     const standings: Record<string, Record<string, TeamStats>> = {};
 
-    groupMatches.forEach(match => {
+    completedMatches.forEach(match => {
       const groupName = match.round_name;
       
       if (!standings[groupName]) {
@@ -145,6 +166,8 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
           pointsScored: 0,
           pointsAgainst: 0,
           points: 0,
+          player1Id: match.team1_player1_id,
+          player2Id: match.team1_player2_id || undefined,
         };
       }
 
@@ -161,6 +184,8 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
           pointsScored: 0,
           pointsAgainst: 0,
           points: 0,
+          player1Id: match.team2_player1_id,
+          player2Id: match.team2_player2_id || undefined,
         };
       }
 
@@ -251,12 +276,14 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
       qualifiedTeams.push(...teams.filter(team => team.qualified));
     });
 
-    if (qualifiedTeams.length >= 4) {
+    console.log("Qualified teams for knockout:", qualifiedTeams);
+
+    if (qualifiedTeams.length >= 2) {
       generateKnockoutMutation.mutate(qualifiedTeams);
     } else {
       toast({
         title: "Insufficient qualified teams",
-        description: "Need at least 4 qualified teams to generate knockout stage",
+        description: "Need at least 2 qualified teams to generate knockout stage",
         variant: "destructive"
       });
     }
