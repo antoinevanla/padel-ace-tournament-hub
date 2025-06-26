@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, MapPin, Users, Settings, Trophy, Edit } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Settings, Trophy, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -16,6 +15,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -96,6 +106,28 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
     onError: (error) => {
       toast({ 
         title: "Failed to update match", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteMatchMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      const { error } = await supabase
+        .from("matches")
+        .delete()
+        .eq("id", matchId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Match deleted successfully!" });
+      queryClient.invalidateQueries({ queryKey: ["tournament-matches"] });
+    },
+    onError: (error) => {
+      toast({ 
+        title: "Failed to delete match", 
         description: error.message,
         variant: "destructive" 
       });
@@ -344,7 +376,7 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
                       onClick={() => setEditingMatch(match)}
                     >
                       <Edit className="h-4 w-4 mr-1" />
-                      Edit Schedule
+                      Edit
                     </Button>
                     
                     {match.status !== "completed" && (
@@ -357,6 +389,43 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
                         Add Score
                       </Button>
                     )}
+
+                    {match.status === "completed" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScoringMatch(match)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit Score
+                      </Button>
+                    )}
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Match</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this match? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteMatchMutation.mutate(match.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}
@@ -365,14 +434,14 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
         </Card>
       ))}
 
-      {/* Edit Schedule Dialog */}
+      {/* Edit Match Dialog */}
       {editingMatch && (
         <Dialog open={!!editingMatch} onOpenChange={() => setEditingMatch(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Match Schedule</DialogTitle>
+              <DialogTitle>Edit Match</DialogTitle>
             </DialogHeader>
-            <MatchScheduleForm 
+            <MatchEditForm 
               match={editingMatch}
               onSubmit={(updates) => updateMatchMutation.mutate({
                 matchId: editingMatch.id,
@@ -389,7 +458,7 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
         <Dialog open={!!scoringMatch} onOpenChange={() => setScoringMatch(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Match Score</DialogTitle>
+              <DialogTitle>{scoringMatch.status === 'completed' ? 'Edit' : 'Add'} Match Score</DialogTitle>
             </DialogHeader>
             <MatchScoreForm 
               match={scoringMatch}
@@ -403,8 +472,8 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
   );
 };
 
-// Separate component for match schedule editing
-const MatchScheduleForm = ({ match, onSubmit, onCancel }: {
+// Separate component for comprehensive match editing
+const MatchEditForm = ({ match, onSubmit, onCancel }: {
   match: Match;
   onSubmit: (updates: any) => void;
   onCancel: () => void;

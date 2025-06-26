@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TournamentRegistration from "@/components/tournaments/TournamentRegistration";
 import MatchManagement from "./MatchManagement";
 import TournamentStructureGenerator from "./TournamentStructureGenerator";
+import QualificationManager from "./QualificationManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminTournamentDetailProps {
@@ -75,8 +76,9 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
       </div>
 
       <Tabs defaultValue="matches" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="matches">Matches</TabsTrigger>
+          <TabsTrigger value="qualifications">Qualifications</TabsTrigger>
           <TabsTrigger value="structure">Structure</TabsTrigger>
           <TabsTrigger value="participants">Participants</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -84,6 +86,10 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
 
         <TabsContent value="matches">
           <MatchManagement tournamentId={tournamentId} />
+        </TabsContent>
+
+        <TabsContent value="qualifications">
+          <QualificationManager tournamentId={tournamentId} />
         </TabsContent>
 
         <TabsContent value="structure">
