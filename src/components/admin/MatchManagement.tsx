@@ -21,6 +21,20 @@ interface MatchManagementProps {
   tournamentId: string;
 }
 
+interface Match {
+  id: string;
+  round_name: string;
+  scheduled_time: string | null;
+  court_number: number | null;
+  status: string;
+  team1_sets_won: number | null;
+  team2_sets_won: number | null;
+  team1_player1: { full_name: string } | null;
+  team1_player2: { full_name: string } | null;
+  team2_player1: { full_name: string } | null;
+  team2_player2: { full_name: string } | null;
+}
+
 const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -49,7 +63,7 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
         .order("scheduled_time", { ascending: true });
       
       if (error) throw error;
-      return data;
+      return data as Match[];
     },
   });
 
@@ -107,7 +121,7 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
     },
   });
 
-  const generateBulkSchedule = (matches: any[], scheduleData: typeof bulkScheduleData) => {
+  const generateBulkSchedule = (matches: Match[], scheduleData: typeof bulkScheduleData) => {
     const updates = [];
     const startTime = new Date();
     const [startHour, startMinute] = scheduleData.startTime.split(':').map(Number);
@@ -134,13 +148,13 @@ const MatchManagement = ({ tournamentId }: MatchManagementProps) => {
     return updates;
   };
 
-  const groupMatchesByRound = (matches: any[]) => {
+  const groupMatchesByRound = (matches: Match[]) => {
     return matches.reduce((groups, match) => {
       const round = match.round_name || "Unassigned";
       if (!groups[round]) groups[round] = [];
       groups[round].push(match);
       return groups;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, Match[]>);
   };
 
   const getStatusColor = (status: string) => {

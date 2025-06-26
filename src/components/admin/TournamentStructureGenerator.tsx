@@ -38,20 +38,22 @@ const TournamentStructureGenerator = ({ tournament, participants }: TournamentSt
       // Step 2: Generate matches based on format
       const matches = generateMatches(teams, generationConfig);
       
-      // Step 3: Insert matches into database
-      const { error } = await supabase
-        .from("matches")
-        .insert(matches.map(match => ({
-          tournament_id: tournament.id,
-          round_name: match.round,
-          team1_player1_id: match.team1.player1_id,
-          team1_player2_id: match.team1.player2_id,
-          team2_player1_id: match.team2.player1_id,
-          team2_player2_id: match.team2.player2_id,
-          status: "scheduled",
-        })));
-      
-      if (error) throw error;
+      // Step 3: Insert matches into database - insert each match individually
+      for (const match of matches) {
+        const { error } = await supabase
+          .from("matches")
+          .insert({
+            tournament_id: tournament.id,
+            round_name: match.round,
+            team1_player1_id: match.team1.player1_id,
+            team1_player2_id: match.team1.player2_id,
+            team2_player1_id: match.team2.player1_id,
+            team2_player2_id: match.team2.player2_id,
+            status: "scheduled" as const,
+          });
+        
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast({ title: "Tournament structure generated successfully!" });
