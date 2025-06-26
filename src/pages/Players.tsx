@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Star, Trophy, Calendar } from "lucide-react";
+import { Users, Star, Trophy, Calendar, Mail } from "lucide-react";
 
 const Players = () => {
   const { data: players, isLoading } = useQuery({
@@ -14,8 +14,11 @@ const Players = () => {
         .from("profiles")
         .select(`
           *,
-          tournaments_organized:tournaments!tournaments_organizer_id_fkey(count),
-          tournament_registrations(count)
+          tournament_registrations(
+            id,
+            payment_status,
+            tournament:tournaments(name)
+          )
         `)
         .order("created_at", { ascending: false });
       
@@ -51,6 +54,19 @@ const Players = () => {
     }
   };
 
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -63,7 +79,9 @@ const Players = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Players</h1>
-        <p className="text-gray-600">Meet the padel community and discover talented players</p>
+        <p className="text-gray-600">
+          Meet the padel community and discover talented players ({players?.length || 0} registered)
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -79,7 +97,7 @@ const Players = () => {
               <CardTitle className="text-lg">
                 {player.full_name || player.email.split('@')[0]}
               </CardTitle>
-              <div className="flex justify-center space-x-2">
+              <div className="flex justify-center space-x-2 flex-wrap gap-1">
                 <Badge className={getRoleColor(player.role || 'player')}>
                   {player.role || 'player'}
                 </Badge>
@@ -91,6 +109,16 @@ const Players = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center text-gray-600">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </span>
+                <span className="font-medium text-xs truncate max-w-[120px]" title={player.email}>
+                  {player.email}
+                </span>
+              </div>
+
               {player.skill_level && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center text-gray-600">
@@ -107,19 +135,26 @@ const Players = () => {
                   Tournaments
                 </span>
                 <span className="font-medium">
-                  {player.tournament_registrations?.[0]?.count || 0}
+                  {player.tournament_registrations?.length || 0}
                 </span>
               </div>
 
-              {player.tournaments_organized?.[0]?.count > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center text-gray-600">
-                    <Users className="h-4 w-4 mr-2" />
-                    Organized
-                  </span>
-                  <span className="font-medium">
-                    {player.tournaments_organized[0].count}
-                  </span>
+              {player.tournament_registrations && player.tournament_registrations.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-700">Recent Registrations:</div>
+                  {player.tournament_registrations.slice(0, 2).map((reg: any) => (
+                    <div key={reg.id} className="flex items-center justify-between text-xs">
+                      <span className="truncate max-w-[100px]" title={reg.tournament?.name}>
+                        {reg.tournament?.name}
+                      </span>
+                      <Badge 
+                        className={`${getPaymentStatusColor(reg.payment_status)} text-xs`}
+                        variant="secondary"
+                      >
+                        {reg.payment_status}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               )}
 

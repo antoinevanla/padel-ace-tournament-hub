@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,8 @@ import TournamentRegistration from "@/components/tournaments/TournamentRegistrat
 import MatchManagement from "./MatchManagement";
 import TournamentStructureGenerator from "./TournamentStructureGenerator";
 import QualificationManager from "./QualificationManager";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ParticipantManagement from "./ParticipantManagement";
+import TournamentOverview from "./TournamentOverview";
 
 interface AdminTournamentDetailProps {
   tournamentId: string;
@@ -35,8 +35,8 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         .from("tournament_registrations")
         .select(`
           *,
-          player:profiles!tournament_registrations_player_id_fkey(full_name, avatar_url),
-          partner:profiles!tournament_registrations_partner_id_fkey(full_name, avatar_url)
+          player:profiles!tournament_registrations_player_id_fkey(full_name, avatar_url, email, skill_level),
+          partner:profiles!tournament_registrations_partner_id_fkey(full_name, avatar_url, email, skill_level)
         `)
         .eq("tournament_id", tournamentId);
       
@@ -75,14 +75,23 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         <p className="text-gray-600">Tournament Management</p>
       </div>
 
-      <Tabs defaultValue="matches" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="matches">Matches</TabsTrigger>
           <TabsTrigger value="qualifications">Qualifications</TabsTrigger>
           <TabsTrigger value="structure">Structure</TabsTrigger>
           <TabsTrigger value="participants">Participants</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="registration">Registration</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview">
+          <TournamentOverview 
+            tournament={tournament} 
+            participants={participants}
+            matches={matches}
+          />
+        </TabsContent>
 
         <TabsContent value="matches">
           <MatchManagement tournamentId={tournamentId} />
@@ -102,35 +111,13 @@ const AdminTournamentDetail = ({ tournamentId }: AdminTournamentDetailProps) => 
         </TabsContent>
 
         <TabsContent value="participants">
-          <Card>
-            <CardHeader>
-              <CardTitle>Registered Participants</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {participants && participants.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {participants.map((registration) => (
-                    <div key={registration.id} className="border rounded-lg p-4">
-                      <div className="font-medium">{registration.player.full_name}</div>
-                      {registration.partner && (
-                        <div className="text-sm text-gray-600">
-                          Partner: {registration.partner.full_name}
-                        </div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1">
-                        Payment: {registration.payment_status}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-600">No participants registered yet.</p>
-              )}
-            </CardContent>
-          </Card>
+          <ParticipantManagement 
+            tournamentId={tournamentId}
+            participants={participants}
+          />
         </TabsContent>
 
-        <TabsContent value="overview">
+        <TabsContent value="registration">
           <TournamentRegistration tournament={tournament} />
         </TabsContent>
       </Tabs>
