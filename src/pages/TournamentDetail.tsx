@@ -37,7 +37,7 @@ const TournamentDetail = () => {
     enabled: !!id,
   });
 
-  const { data: participants, isLoading: participantsLoading, error: participantsError } = useQuery({
+  const { data: participants, isLoading: participantsLoading } = useQuery({
     queryKey: ["tournament-participants", id],
     queryFn: async () => {
       if (!id) return [];
@@ -54,7 +54,7 @@ const TournamentDetail = () => {
       
       if (error) {
         console.error("Error fetching participants:", error);
-        throw error;
+        return [];
       }
       console.log("Participants data:", data);
       return data || [];
@@ -62,7 +62,7 @@ const TournamentDetail = () => {
     enabled: !!id,
   });
 
-  const { data: matches, isLoading: matchesLoading, error: matchesError } = useQuery({
+  const { data: matches, isLoading: matchesLoading } = useQuery({
     queryKey: ["tournament-matches", id],
     queryFn: async () => {
       if (!id) return [];
@@ -82,7 +82,7 @@ const TournamentDetail = () => {
       
       if (error) {
         console.error("Error fetching matches:", error);
-        throw error;
+        return [];
       }
       console.log("Matches data:", data);
       return data || [];
@@ -91,7 +91,6 @@ const TournamentDetail = () => {
   });
 
   const isLoading = tournamentLoading || participantsLoading || matchesLoading;
-  const hasError = tournamentError || participantsError || matchesError;
 
   if (isLoading) {
     return (
@@ -104,14 +103,14 @@ const TournamentDetail = () => {
     );
   }
 
-  if (hasError || !tournament) {
+  if (tournamentError || !tournament) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Tournament Not Found</h2>
           <p className="text-gray-600">
-            {hasError ? "There was an error loading the tournament details." : "The tournament you're looking for doesn't exist."}
+            {tournamentError ? "There was an error loading the tournament details." : "The tournament you're looking for doesn't exist."}
           </p>
         </div>
       </div>
@@ -166,7 +165,7 @@ const TournamentDetail = () => {
                         )}
                         <Badge 
                           variant={registration.payment_status === "completed" ? "default" : "secondary"}
-                          className="text-xs"
+                          className="text-xs mt-1"
                         >
                           {registration.payment_status || "pending"}
                         </Badge>
@@ -257,13 +256,13 @@ const TournamentDetail = () => {
                 <span className="font-medium">Registration Deadline:</span>
                 <p className="text-gray-600">{new Date(tournament.registration_deadline).toLocaleDateString()}</p>
               </div>
-              {tournament.entry_fee > 0 && (
+              {tournament.entry_fee && tournament.entry_fee > 0 && (
                 <div>
                   <span className="font-medium">Entry Fee:</span>
                   <p className="text-gray-600">${tournament.entry_fee}</p>
                 </div>
               )}
-              {tournament.prize_pool > 0 && (
+              {tournament.prize_pool && tournament.prize_pool > 0 && (
                 <div>
                   <span className="font-medium">Prize Pool:</span>
                   <p className="text-green-600 font-semibold">${tournament.prize_pool}</p>

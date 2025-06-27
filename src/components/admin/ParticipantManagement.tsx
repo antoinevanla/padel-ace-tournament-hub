@@ -34,11 +34,9 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
     },
     onSuccess: () => {
       toast({ title: "Payment status updated successfully" });
-      // Invalidate all related queries
+      // Invalidate specific queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
-      queryClient.invalidateQueries({ queryKey: ["players"] });
-      queryClient.invalidateQueries({ queryKey: ["upcoming-tournaments"] });
     },
     onError: (error) => {
       console.error("Payment status update error:", error);
@@ -66,7 +64,7 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
     },
     onSuccess: () => {
       toast({ title: "Skill level updated successfully" });
-      // Invalidate all related queries
+      // Invalidate queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
     },
