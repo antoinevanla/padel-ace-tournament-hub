@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,43 +35,20 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
         throw new Error("Invalid payment status");
       }
 
-      // First check if the registration exists
-      const { data: existing, error: checkError } = await supabase
-        .from("tournament_registrations")
-        .select("id, payment_status")
-        .eq("id", registrationId);
-      
-      if (checkError) {
-        console.error("Error checking registration:", checkError);
-        throw new Error(`Failed to find registration: ${checkError.message}`);
-      }
-      
-      if (!existing || existing.length === 0) {
-        throw new Error("Registration not found");
-      }
-      
-      if (existing.length > 1) {
-        console.warn("Multiple registrations found with same ID:", existing);
-      }
-
-      // Update the payment status
       const { data, error } = await supabase
         .from("tournament_registrations")
         .update({ payment_status: status })
         .eq("id", registrationId)
-        .select("*");
+        .select()
+        .single();
       
       if (error) {
         console.error("Error updating payment status:", error);
-        throw new Error(`Failed to update payment status: ${error.message}`);
+        throw error;
       }
       
-      if (!data || data.length === 0) {
-        throw new Error("No registration was updated");
-      }
-      
-      console.log("Payment status updated successfully:", data[0]);
-      return data[0];
+      console.log("Payment status updated successfully:", data);
+      return data;
     },
     onSuccess: (data) => {
       console.log("Payment status update successful:", data);
@@ -102,41 +80,20 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
         throw new Error("Invalid player ID or skill level (must be 1-10)");
       }
 
-      // First check if the player exists
-      const { data: existing, error: checkError } = await supabase
-        .from("profiles")
-        .select("id, skill_level, full_name, email")
-        .eq("id", playerId);
-      
-      if (checkError) {
-        console.error("Error checking player:", checkError);
-        throw new Error(`Failed to find player: ${checkError.message}`);
-      }
-      
-      if (!existing || existing.length === 0) {
-        throw new Error("Player not found");
-      }
-      
-      console.log("Found player:", existing[0]);
-
-      // Update the skill level
       const { data, error } = await supabase
         .from("profiles")
         .update({ skill_level: skillLevel })
         .eq("id", playerId)
-        .select("*");
+        .select()
+        .single();
       
       if (error) {
         console.error("Error updating skill level:", error);
-        throw new Error(`Failed to update skill level: ${error.message}`);
+        throw error;
       }
       
-      if (!data || data.length === 0) {
-        throw new Error("No player profile was updated");
-      }
-      
-      console.log("Skill level updated successfully:", data[0]);
-      return data[0];
+      console.log("Skill level updated successfully:", data);
+      return data;
     },
     onSuccess: (data) => {
       console.log("Skill level update successful:", data);
