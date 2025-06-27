@@ -31,10 +31,12 @@ const TournamentDetail = () => {
         console.error("Error fetching tournament:", error);
         throw error;
       }
-      console.log("Tournament data:", data);
+      console.log("Tournament data loaded:", data);
       return data;
     },
     enabled: !!id,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const { data: participants, isLoading: participantsLoading } = useQuery({
@@ -56,10 +58,12 @@ const TournamentDetail = () => {
         console.error("Error fetching participants:", error);
         return [];
       }
-      console.log("Participants data:", data);
+      console.log("Participants data loaded:", data);
       return data || [];
     },
     enabled: !!id,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const { data: matches, isLoading: matchesLoading } = useQuery({
@@ -84,10 +88,12 @@ const TournamentDetail = () => {
         console.error("Error fetching matches:", error);
         return [];
       }
-      console.log("Matches data:", data);
+      console.log("Matches data loaded:", data);
       return data || [];
     },
     enabled: !!id,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const isLoading = tournamentLoading || participantsLoading || matchesLoading;
@@ -95,7 +101,7 @@ const TournamentDetail = () => {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center min-h-[200px]">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
           <span>Loading tournament details...</span>
         </div>
@@ -103,15 +109,34 @@ const TournamentDetail = () => {
     );
   }
 
-  if (tournamentError || !tournament) {
+  if (tournamentError) {
+    console.error("Tournament error:", tournamentError);
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Tournament</h2>
+          <p className="text-gray-600 mb-4">
+            {tournamentError.message || "There was an error loading the tournament details."}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tournament) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Tournament Not Found</h2>
-          <p className="text-gray-600">
-            {tournamentError ? "There was an error loading the tournament details." : "The tournament you're looking for doesn't exist."}
-          </p>
+          <p className="text-gray-600">The tournament you're looking for doesn't exist.</p>
         </div>
       </div>
     );
@@ -190,9 +215,9 @@ const TournamentDetail = () => {
                   {matches.map((match) => (
                     <div key={match.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="font-medium text-sm">{match.round_name}</span>
-                        <Badge className={getStatusColor(match.status)}>
-                          {match.status}
+                        <span className="font-medium text-sm">{match.round_name || "Round TBD"}</span>
+                        <Badge className={getStatusColor(match.status || "scheduled")}>
+                          {match.status || "scheduled"}
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
@@ -242,19 +267,21 @@ const TournamentDetail = () => {
               </div>
               <div>
                 <span className="font-medium">Status:</span>
-                <Badge className={getStatusColor(tournament.status)} variant="secondary">
-                  {tournament.status}
+                <Badge className={getStatusColor(tournament.status || "upcoming")} variant="secondary">
+                  {tournament.status || "upcoming"}
                 </Badge>
               </div>
               <div>
                 <span className="font-medium">Dates:</span>
                 <p className="text-gray-600">
-                  {new Date(tournament.start_date).toLocaleDateString()} - {new Date(tournament.end_date).toLocaleDateString()}
+                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : "TBD"} - {tournament.end_date ? new Date(tournament.end_date).toLocaleDateString() : "TBD"}
                 </p>
               </div>
               <div>
                 <span className="font-medium">Registration Deadline:</span>
-                <p className="text-gray-600">{new Date(tournament.registration_deadline).toLocaleDateString()}</p>
+                <p className="text-gray-600">
+                  {tournament.registration_deadline ? new Date(tournament.registration_deadline).toLocaleDateString() : "TBD"}
+                </p>
               </div>
               {tournament.entry_fee && tournament.entry_fee > 0 && (
                 <div>
@@ -270,7 +297,7 @@ const TournamentDetail = () => {
               )}
               <div>
                 <span className="font-medium">Participants:</span>
-                <p className="text-gray-600">{participants?.length || 0} / {tournament.max_participants}</p>
+                <p className="text-gray-600">{participants?.length || 0} / {tournament.max_participants || 0}</p>
               </div>
             </CardContent>
           </Card>

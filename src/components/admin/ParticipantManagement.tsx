@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,9 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  console.log("ParticipantManagement - Tournament ID:", tournamentId);
+  console.log("ParticipantManagement - Participants:", participants);
+
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ registrationId, status }: { registrationId: string; status: string }) => {
       console.log("Updating payment status for registration:", registrationId, "to:", status);
@@ -25,31 +29,44 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
         throw new Error("Invalid registration ID or status");
       }
 
-      const { error } = await supabase
+      // Validate the status
+      const validStatuses = ["pending", "completed", "failed"];
+      if (!validStatuses.includes(status)) {
+        throw new Error("Invalid payment status");
+      }
+
+      const { data, error } = await supabase
         .from("tournament_registrations")
         .update({ payment_status: status })
-        .eq("id", registrationId);
+        .eq("id", registrationId)
+        .select()
+        .single();
       
       if (error) {
         console.error("Error updating payment status:", error);
         throw error;
       }
-      console.log("Payment status updated successfully");
+      
+      console.log("Payment status updated successfully:", data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Payment status update successful:", data);
       toast({ title: "Payment status updated successfully" });
+      
       // Invalidate all relevant queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+      queryClient.invalidateQueries({ queryKey: ["tournament-registration"] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
-      queryClient.invalidateQueries({ queryKey: ["upcoming-tournaments"] });
+      queryClient.invalidateQueries({ queryKey: ["tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Payment status update error:", error);
       toast({ 
         title: "Error updating payment status", 
-        description: error.message,
+        description: error.message || "An error occurred while updating payment status",
         variant: "destructive" 
       });
     },
@@ -60,32 +77,38 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
       console.log("Updating skill level for player:", playerId, "to level:", skillLevel);
       
       if (!playerId || !skillLevel || skillLevel < 1 || skillLevel > 10) {
-        throw new Error("Invalid player ID or skill level");
+        throw new Error("Invalid player ID or skill level (must be 1-10)");
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .update({ skill_level: skillLevel })
-        .eq("id", playerId);
+        .eq("id", playerId)
+        .select()
+        .single();
       
       if (error) {
         console.error("Error updating skill level:", error);
         throw error;
       }
-      console.log("Skill level updated successfully");
+      
+      console.log("Skill level updated successfully:", data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Skill level update successful:", data);
       toast({ title: "Skill level updated successfully" });
+      
       // Invalidate all relevant queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
       queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Skill level update error:", error);
       toast({ 
         title: "Error updating skill level", 
-        description: error.message,
+        description: error.message || "An error occurred while updating skill level",
         variant: "destructive" 
       });
     },
@@ -122,7 +145,9 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
 
   const handlePaymentStatusChange = (registrationId: string, newStatus: string) => {
     console.log("Handling payment status change:", registrationId, newStatus);
+    
     if (!registrationId || !newStatus) {
+      console.error("Invalid registration ID or status:", registrationId, newStatus);
       toast({ 
         title: "Error", 
         description: "Invalid registration ID or status",
@@ -130,13 +155,16 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
       });
       return;
     }
+    
     updatePaymentStatusMutation.mutate({ registrationId, status: newStatus });
   };
 
   const handleSkillLevelChange = (playerId: string, newLevel: string) => {
     const skillLevel = parseInt(newLevel);
     console.log("Handling skill level change:", playerId, skillLevel);
-    if (!playerId || !skillLevel || isNaN(skillLevel)) {
+    
+    if (!playerId || !skillLevel || isNaN(skillLevel) || skillLevel < 1 || skillLevel > 10) {
+      console.error("Invalid player ID or skill level:", playerId, skillLevel);
       toast({ 
         title: "Error", 
         description: "Invalid player ID or skill level",
@@ -144,131 +172,158 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
       });
       return;
     }
+    
     updateSkillLevelMutation.mutate({ playerId, skillLevel });
   };
 
-  console.log("ParticipantManagement - Tournament ID:", tournamentId);
-  console.log("ParticipantManagement - Participants:", participants);
+  if (!participants) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            Registered Participants (0)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600 text-center py-8">Loading participants...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
           <Users className="h-5 w-5 mr-2" />
-          Registered Participants ({participants?.length || 0})
+          Registered Participants ({participants.length})
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {participants && participants.length > 0 ? (
+        {participants.length > 0 ? (
           <div className="space-y-4">
-            {participants.map((registration) => (
-              <div key={registration.id} className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar>
-                      <AvatarImage src={registration.player?.avatar_url || ""} />
-                      <AvatarFallback>
-                        {registration.player?.full_name?.[0] || registration.player?.email?.[0] || "P"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium">
-                        {registration.player?.full_name || registration.player?.email?.split('@')[0] || "Unknown Player"}
+            {participants.map((registration) => {
+              const player = registration.player;
+              const partner = registration.partner;
+              
+              if (!player) {
+                console.warn("Registration without player data:", registration);
+                return null;
+              }
+
+              return (
+                <div key={registration.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Avatar>
+                        <AvatarImage src={player.avatar_url || ""} />
+                        <AvatarFallback>
+                          {player.full_name?.[0] || player.email?.[0] || "P"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">
+                          {player.full_name || player.email?.split('@')[0] || "Unknown Player"}
+                        </div>
+                        <div className="text-sm text-gray-600 flex items-center">
+                          <Mail className="h-3 w-3 mr-1" />
+                          {player.email || "No email"}
+                        </div>
+                        {partner && (
+                          <div className="text-sm text-gray-600 mt-1">
+                            Partner: {partner.full_name || partner.email?.split('@')[0] || "Unknown"}
+                            {partner.email && (
+                              <span className="text-xs ml-2">({partner.email})</span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <Mail className="h-3 w-3 mr-1" />
-                        {registration.player?.email || "No email"}
-                      </div>
-                      {registration.partner && (
-                        <div className="text-sm text-gray-600 mt-1">
-                          Partner: {registration.partner.full_name || registration.partner.email?.split('@')[0] || "Unknown"}
-                          {registration.partner.email && (
-                            <span className="text-xs ml-2">({registration.partner.email})</span>
-                          )}
+                    </div>
+                    
+                    <div className="flex flex-col items-end space-y-2">
+                      {player.skill_level && (
+                        <div className="flex items-center space-x-2">
+                          <Badge className={getSkillColor(player.skill_level)}>
+                            <Star className="h-3 w-3 mr-1" />
+                            {getSkillLevel(player.skill_level)}
+                          </Badge>
+                          <Select
+                            value={player.skill_level?.toString() || "1"}
+                            onValueChange={(value) => handleSkillLevelChange(player.id, value)}
+                            disabled={updateSkillLevelMutation.isPending}
+                          >
+                            <SelectTrigger className="w-24 h-8 text-xs">
+                              {updateSkillLevelMutation.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <SelectValue />
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 (Beginner)</SelectItem>
+                              <SelectItem value="2">2 (Beginner)</SelectItem>
+                              <SelectItem value="3">3 (Beginner)</SelectItem>
+                              <SelectItem value="4">4 (Intermediate)</SelectItem>
+                              <SelectItem value="5">5 (Intermediate)</SelectItem>
+                              <SelectItem value="6">6 (Intermediate)</SelectItem>
+                              <SelectItem value="7">7 (Advanced)</SelectItem>
+                              <SelectItem value="8">8 (Advanced)</SelectItem>
+                              <SelectItem value="9">9 (Expert)</SelectItem>
+                              <SelectItem value="10">10 (Expert)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-end space-y-2">
-                    {registration.player?.skill_level && (
+                      
                       <div className="flex items-center space-x-2">
-                        <Badge className={getSkillColor(registration.player.skill_level)}>
-                          <Star className="h-3 w-3 mr-1" />
-                          {getSkillLevel(registration.player.skill_level)}
-                        </Badge>
+                        <span className="text-xs text-gray-600">Payment:</span>
                         <Select
-                          value={registration.player.skill_level?.toString() || "1"}
-                          onValueChange={(value) => handleSkillLevelChange(registration.player.id, value)}
-                          disabled={updateSkillLevelMutation.isPending}
+                          value={registration.payment_status || "pending"}
+                          onValueChange={(value) => handlePaymentStatusChange(registration.id, value)}
+                          disabled={updatePaymentStatusMutation.isPending}
                         >
-                          <SelectTrigger className="w-24 h-8 text-xs">
-                            {updateSkillLevelMutation.isPending ? (
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            {updatePaymentStatusMutation.isPending ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
                               <SelectValue />
                             )}
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1">1 (Beginner)</SelectItem>
-                            <SelectItem value="2">2 (Beginner)</SelectItem>
-                            <SelectItem value="3">3 (Beginner)</SelectItem>
-                            <SelectItem value="4">4 (Intermediate)</SelectItem>
-                            <SelectItem value="5">5 (Intermediate)</SelectItem>
-                            <SelectItem value="6">6 (Intermediate)</SelectItem>
-                            <SelectItem value="7">7 (Advanced)</SelectItem>
-                            <SelectItem value="8">8 (Advanced)</SelectItem>
-                            <SelectItem value="9">9 (Expert)</SelectItem>
-                            <SelectItem value="10">10 (Expert)</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
-                    
-                    <Select
-                      value={registration.payment_status || "pending"}
-                      onValueChange={(value) => handlePaymentStatusChange(registration.id, value)}
-                      disabled={updatePaymentStatusMutation.isPending}
-                    >
-                      <SelectTrigger className="w-32">
-                        {updatePaymentStatusMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <SelectValue />
-                        )}
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="failed">Failed</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">
-                    Registered: {new Date(registration.registration_date).toLocaleDateString()}
-                  </span>
-                  <Badge 
-                    className={getPaymentStatusColor(registration.payment_status || "pending")}
-                    variant="secondary"
-                  >
-                    {registration.payment_status || "pending"}
-                  </Badge>
-                </div>
-
-                {registration.partner && registration.partner.skill_level && (
-                  <div className="text-sm text-gray-600 flex items-center">
-                    <span className="mr-2">Partner skill level:</span>
-                    <Badge className={getSkillColor(registration.partner.skill_level)} variant="outline">
-                      <Star className="h-3 w-3 mr-1" />
-                      {getSkillLevel(registration.partner.skill_level)}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">
+                      Registered: {new Date(registration.registration_date).toLocaleDateString()}
+                    </span>
+                    <Badge 
+                      className={getPaymentStatusColor(registration.payment_status || "pending")}
+                      variant="secondary"
+                    >
+                      {registration.payment_status || "pending"}
                     </Badge>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {partner && partner.skill_level && (
+                    <div className="text-sm text-gray-600 flex items-center">
+                      <span className="mr-2">Partner skill level:</span>
+                      <Badge className={getSkillColor(partner.skill_level)} variant="outline">
+                        <Star className="h-3 w-3 mr-1" />
+                        {getSkillLevel(partner.skill_level)}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-gray-600 text-center py-8">No participants registered yet.</p>
