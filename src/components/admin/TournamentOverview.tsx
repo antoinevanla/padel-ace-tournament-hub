@@ -40,8 +40,8 @@ const TournamentOverview = ({ tournament, participants, matches }: TournamentOve
   const inProgressMatches = matches?.filter(m => m.status === 'in_progress').length || 0;
   const scheduledMatches = matches?.filter(m => m.status === 'scheduled').length || 0;
 
-  const groupMatches = matches?.filter(m => m.round_name.toLowerCase().includes('group')) || [];
-  const knockoutMatches = matches?.filter(m => !m.round_name.toLowerCase().includes('group')) || [];
+  const groupMatches = matches?.filter(m => m.round_name?.toLowerCase().includes('group')) || [];
+  const knockoutMatches = matches?.filter(m => !m.round_name?.toLowerCase().includes('group')) || [];
 
   const completedParticipants = participants?.filter(p => p.payment_status === 'completed').length || 0;
   const pendingParticipants = participants?.filter(p => p.payment_status === 'pending').length || 0;
@@ -56,21 +56,21 @@ const TournamentOverview = ({ tournament, participants, matches }: TournamentOve
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-2xl mb-2">{tournament.name}</CardTitle>
-              <p className="text-gray-600 mb-4">{tournament.description}</p>
+              <CardTitle className="text-2xl mb-2">{tournament.name || "Tournament"}</CardTitle>
+              <p className="text-gray-600 mb-4">{tournament.description || "No description available"}</p>
               <div className="flex items-center space-x-4 text-sm text-gray-600">
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-1" />
-                  {tournament.location}
+                  {tournament.location || "Location TBD"}
                 </div>
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1" />
-                  {new Date(tournament.start_date).toLocaleDateString()} - {new Date(tournament.end_date).toLocaleDateString()}
+                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : "Start TBD"} - {tournament.end_date ? new Date(tournament.end_date).toLocaleDateString() : "End TBD"}
                 </div>
               </div>
             </div>
-            <Badge className={getStatusColor(tournament.status)} variant="secondary">
-              {tournament.status}
+            <Badge className={getStatusColor(tournament.status || "upcoming")} variant="secondary">
+              {tournament.status || "upcoming"}
             </Badge>
           </div>
         </CardHeader>
@@ -84,7 +84,7 @@ const TournamentOverview = ({ tournament, participants, matches }: TournamentOve
               <div>
                 <p className="text-sm text-gray-600">Participants</p>
                 <p className="text-2xl font-bold">{participants?.length || 0}</p>
-                <p className="text-xs text-gray-500">of {tournament.max_participants} max</p>
+                <p className="text-xs text-gray-500">of {tournament.max_participants || 0} max</p>
               </div>
               <Users className="h-8 w-8 text-blue-500" />
             </div>
@@ -145,7 +145,7 @@ const TournamentOverview = ({ tournament, participants, matches }: TournamentOve
             <div className="flex justify-between items-center">
               <span>Registration Deadline:</span>
               <Badge variant="outline">
-                {new Date(tournament.registration_deadline).toLocaleDateString()}
+                {tournament.registration_deadline ? new Date(tournament.registration_deadline).toLocaleDateString() : "TBD"}
               </Badge>
             </div>
             
@@ -242,18 +242,18 @@ const TournamentOverview = ({ tournament, participants, matches }: TournamentOve
             <div>
               <span className="font-medium">Created:</span>
               <span className="ml-2 text-gray-600">
-                {new Date(tournament.created_at).toLocaleDateString()}
+                {tournament.created_at ? new Date(tournament.created_at).toLocaleDateString() : "Unknown"}
               </span>
             </div>
             <div>
               <span className="font-medium">Last Updated:</span>
               <span className="ml-2 text-gray-600">
-                {new Date(tournament.updated_at).toLocaleDateString()}
+                {tournament.updated_at ? new Date(tournament.updated_at).toLocaleDateString() : "Unknown"}
               </span>
             </div>
             <div>
               <span className="font-medium">Organizer ID:</span>
-              <span className="ml-2 text-gray-600">{tournament.organizer_id}</span>
+              <span className="ml-2 text-gray-600">{tournament.organizer_id || "Unknown"}</span>
             </div>
           </div>
         </CardContent>

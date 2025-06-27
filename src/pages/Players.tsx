@@ -33,69 +33,81 @@ const Players = () => {
     queryFn: async () => {
       console.log("Fetching players with tournament registrations...");
       
-      // First get all profiles that have tournament registrations
-      const { data: registrations, error: regError } = await supabase
-        .from("tournament_registrations")
-        .select(`
-          player_id,
-          partner_id,
-          tournament_id,
-          payment_status,
-          registration_date,
-          tournament:tournaments(name, start_date, status)
-        `);
-      
-      if (regError) {
-        console.error("Error fetching registrations:", regError);
-        throw regError;
-      }
-
-      // Get unique player IDs from registrations
-      const playerIds = new Set<string>();
-      registrations?.forEach(reg => {
-        if (reg.player_id) playerIds.add(reg.player_id);
-        if (reg.partner_id) playerIds.add(reg.partner_id);
-      });
-
-      if (playerIds.size === 0) {
-        console.log("No players found in registrations");
-        return [];
-      }
-
-      // Convert Set to Array and ensure type safety
-      const playerIdsArray = Array.from(playerIds);
-
-      // Fetch profiles for these players
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .in("id", playerIdsArray);
-      
-      if (profileError) {
-        console.error("Error fetching profiles:", profileError);
-        throw profileError;
-      }
-
-      // Combine profiles with their tournament data
-      const playersWithTournaments = profiles?.map(profile => {
-        const playerRegistrations = registrations?.filter(reg => 
-          reg.player_id === profile.id || reg.partner_id === profile.id
-        ) || [];
+      try {
+        // First get all profiles that have tournament registrations
+        const { data: registrations, error: regError } = await supabase
+          .from("tournament_registrations")
+          .select(`
+            player_id,
+            partner_id,
+            tournament_id,
+            payment_status,
+            registration_date,
+            tournament:tournaments(name, start_date, status)
+          `);
         
-        return {
-          ...profile,
-          tournament_registrations: playerRegistrations
-        };
-      }) || [];
+        if (regError) {
+          console.error("Error fetching registrations:", regError);
+          throw regError;
+        }
 
-      console.log("Players with tournaments:", playersWithTournaments);
-      return playersWithTournaments;
+        // Get unique player IDs from registrations
+        const playerIds = new Set<string>();
+        registrations?.forEach(reg => {
+          if (reg.player_id) playerIds.add(reg.player_id);
+          if (reg.partner_id) playerIds.add(reg.partner_id);
+        });
+
+        if (playerIds.size === 0) {
+          console.log("No players found in registrations");
+          return [];
+        }
+
+        // Convert Set to Array and ensure type safety
+        const playerIdsArray = Array.from(playerIds);
+
+        // Fetch profiles for these players
+        const { data: profiles, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", playerIdsArray);
+        
+        if (profileError) {
+          console.error("Error fetching profiles:", profileError);
+          throw profileError;
+        }
+
+        // Combine profiles with their tournament data
+        const playersWithTournaments = profiles?.map(profile => {
+          const playerRegistrations = registrations?.filter(reg => 
+            reg.player_id === profile.id || reg.partner_id === profile.id
+          ) || [];
+          
+          return {
+            ...profile,
+            tournament_registrations: playerRegistrations
+          };
+        }) || [];
+
+        console.log("Players with tournaments:", playersWithTournaments);
+        return playersWithTournaments;
+      } catch (error) {
+        console.error("Error in players query:", error);
+        throw error;
+      }
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const updateSkillLevelMutation = useMutation({
     mutationFn: async ({ playerId, skillLevel }: { playerId: string; skillLevel: number }) => {
       console.log("Updating skill level for player:", playerId, "to level:", skillLevel);
+      
+      if (!playerId || !skillLevel || skillLevel < 1 || skillLevel > 10) {
+        throw new Error("Invalid player ID or skill level");
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({ skill_level: skillLevel })
@@ -111,6 +123,7 @@ const Players = () => {
       toast({ title: "Skill level updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["players"] });
       queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
+      queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
     },
     onError: (error) => {
       console.error("Mutation error:", error);
@@ -165,6 +178,16 @@ const Players = () => {
   const handleSkillLevelChange = (playerId: string, newLevel: string) => {
     const skillLevel = parseInt(newLevel);
     console.log("Handling skill level change:", playerId, skillLevel);
+    
+    if (!playerId || !skillLevel || isNaN(skillLevel)) {
+      toast({ 
+        title: "Error", 
+        description: "Invalid player ID or skill level",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     updateSkillLevelMutation.mutate({ playerId, skillLevel });
   };
 
@@ -186,6 +209,12 @@ const Players = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center text-red-600">
           <p>Error loading players: {error.message}</p>
+          <button 
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["players"] })}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

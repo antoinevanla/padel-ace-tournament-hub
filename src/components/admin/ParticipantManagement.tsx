@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +20,11 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ registrationId, status }: { registrationId: string; status: string }) => {
       console.log("Updating payment status for registration:", registrationId, "to:", status);
+      
+      if (!registrationId || !status) {
+        throw new Error("Invalid registration ID or status");
+      }
+
       const { error } = await supabase
         .from("tournament_registrations")
         .update({ payment_status: status })
@@ -34,9 +38,12 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
     },
     onSuccess: () => {
       toast({ title: "Payment status updated successfully" });
-      // Invalidate specific queries to refresh the UI
+      // Invalidate all relevant queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tournaments"] });
+      queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
     },
     onError: (error) => {
       console.error("Payment status update error:", error);
@@ -51,6 +58,11 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
   const updateSkillLevelMutation = useMutation({
     mutationFn: async ({ playerId, skillLevel }: { playerId: string; skillLevel: number }) => {
       console.log("Updating skill level for player:", playerId, "to level:", skillLevel);
+      
+      if (!playerId || !skillLevel || skillLevel < 1 || skillLevel > 10) {
+        throw new Error("Invalid player ID or skill level");
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({ skill_level: skillLevel })
@@ -64,9 +76,10 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
     },
     onSuccess: () => {
       toast({ title: "Skill level updated successfully" });
-      // Invalidate queries to refresh the UI
+      // Invalidate all relevant queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
     },
     onError: (error) => {
       console.error("Skill level update error:", error);
@@ -109,12 +122,28 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
 
   const handlePaymentStatusChange = (registrationId: string, newStatus: string) => {
     console.log("Handling payment status change:", registrationId, newStatus);
+    if (!registrationId || !newStatus) {
+      toast({ 
+        title: "Error", 
+        description: "Invalid registration ID or status",
+        variant: "destructive" 
+      });
+      return;
+    }
     updatePaymentStatusMutation.mutate({ registrationId, status: newStatus });
   };
 
   const handleSkillLevelChange = (playerId: string, newLevel: string) => {
     const skillLevel = parseInt(newLevel);
     console.log("Handling skill level change:", playerId, skillLevel);
+    if (!playerId || !skillLevel || isNaN(skillLevel)) {
+      toast({ 
+        title: "Error", 
+        description: "Invalid player ID or skill level",
+        variant: "destructive" 
+      });
+      return;
+    }
     updateSkillLevelMutation.mutate({ playerId, skillLevel });
   };
 
