@@ -108,18 +108,44 @@ const Players = () => {
         throw new Error("Invalid player ID or skill level");
       }
 
-      const { error } = await supabase
+      // First check if the player exists
+      const { data: existing, error: checkError } = await supabase
+        .from("profiles")
+        .select("id, skill_level, full_name, email")
+        .eq("id", playerId);
+      
+      if (checkError) {
+        console.error("Error checking player:", checkError);
+        throw new Error(`Failed to find player: ${checkError.message}`);
+      }
+      
+      if (!existing || existing.length === 0) {
+        throw new Error("Player not found");
+      }
+      
+      console.log("Found player for skill update:", existing[0]);
+
+      // Update the skill level
+      const { data, error } = await supabase
         .from("profiles")
         .update({ skill_level: skillLevel })
-        .eq("id", playerId);
+        .eq("id", playerId)
+        .select("*");
       
       if (error) {
         console.error("Error updating skill level:", error);
-        throw error;
+        throw new Error(`Failed to update skill level: ${error.message}`);
       }
-      console.log("Skill level updated successfully");
+      
+      if (!data || data.length === 0) {
+        throw new Error("No player profile was updated");
+      }
+      
+      console.log("Skill level updated successfully:", data[0]);
+      return data[0];
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Skill level update successful:", data);
       toast({ title: "Skill level updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["players"] });
       queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
@@ -177,9 +203,10 @@ const Players = () => {
 
   const handleSkillLevelChange = (playerId: string, newLevel: string) => {
     const skillLevel = parseInt(newLevel);
-    console.log("Handling skill level change:", playerId, skillLevel);
+    console.log("Handling skill level change in Players tab:", playerId, skillLevel);
     
     if (!playerId || !skillLevel || isNaN(skillLevel)) {
+      console.error("Invalid data for skill level update:", { playerId, skillLevel, newLevel });
       toast({ 
         title: "Error", 
         description: "Invalid player ID or skill level",
@@ -278,7 +305,11 @@ const Players = () => {
                     disabled={updateSkillLevelMutation.isPending}
                   >
                     <SelectTrigger className="w-24 h-6 text-xs">
-                      <SelectValue />
+                      {updateSkillLevelMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <SelectValue />
+                      )}
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">1 (Beginner)</SelectItem>
