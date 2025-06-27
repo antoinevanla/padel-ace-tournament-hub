@@ -7,51 +7,67 @@ import TournamentRegistration from "@/components/tournaments/TournamentRegistrat
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Calendar, Trophy } from "lucide-react";
+import { Users, Calendar, Trophy, Loader2, AlertCircle } from "lucide-react";
 
 const TournamentDetail = () => {
   const { id } = useParams<{ id: string }>();
 
-  const { data: tournament, isLoading } = useQuery({
+  const { data: tournament, isLoading: tournamentLoading, error: tournamentError } = useQuery({
     queryKey: ["tournament", id],
     queryFn: async () => {
+      if (!id) throw new Error("Tournament ID is required");
+      
+      console.log("Fetching tournament details for ID:", id);
       const { data, error } = await supabase
         .from("tournaments")
         .select(`
           *,
-          organizer:profiles(full_name),
-          registrations:tournament_registrations(count)
+          organizer:profiles(full_name)
         `)
         .eq("id", id)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching tournament:", error);
+        throw error;
+      }
+      console.log("Tournament data:", data);
       return data;
     },
     enabled: !!id,
   });
 
-  const { data: participants } = useQuery({
+  const { data: participants, isLoading: participantsLoading, error: participantsError } = useQuery({
     queryKey: ["tournament-participants", id],
     queryFn: async () => {
+      if (!id) return [];
+      
+      console.log("Fetching participants for tournament:", id);
       const { data, error } = await supabase
         .from("tournament_registrations")
         .select(`
           *,
-          player:profiles!tournament_registrations_player_id_fkey(full_name, avatar_url),
-          partner:profiles!tournament_registrations_partner_id_fkey(full_name, avatar_url)
+          player:profiles!tournament_registrations_player_id_fkey(full_name, avatar_url, email),
+          partner:profiles!tournament_registrations_partner_id_fkey(full_name, avatar_url, email)
         `)
         .eq("tournament_id", id);
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error("Error fetching participants:", error);
+        throw error;
+      }
+      console.log("Participants data:", data);
+      return data || [];
     },
     enabled: !!id,
   });
 
-  const { data: matches } = useQuery({
+  const { data: matches, isLoading: matchesLoading, error: matchesError } = useQuery({
     queryKey: ["tournament-matches", id],
     queryFn: async () => {
+      if (!id) return [];
+      
+      console.log("Fetching matches for tournament:", id);
       const { data, error } = await supabase
         .from("matches")
         .select(`
@@ -64,24 +80,40 @@ const TournamentDetail = () => {
         .eq("tournament_id", id)
         .order("scheduled_time", { ascending: true });
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error("Error fetching matches:", error);
+        throw error;
+      }
+      console.log("Matches data:", data);
+      return data || [];
     },
     enabled: !!id,
   });
 
+  const isLoading = tournamentLoading || participantsLoading || matchesLoading;
+  const hasError = tournamentError || participantsError || matchesError;
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center">Loading tournament...</div>
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin mr-2" />
+          <span>Loading tournament details...</span>
+        </div>
       </div>
     );
   }
 
-  if (!tournament) {
+  if (hasError || !tournament) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center">Tournament not found</div>
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Tournament Not Found</h2>
+          <p className="text-gray-600">
+            {hasError ? "There was an error loading the tournament details." : "The tournament you're looking for doesn't exist."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -118,23 +150,25 @@ const TournamentDetail = () => {
                   {participants.map((registration) => (
                     <div key={registration.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                       <Avatar>
-                        <AvatarImage src={registration.player.avatar_url || ""} />
+                        <AvatarImage src={registration.player?.avatar_url || ""} />
                         <AvatarFallback>
-                          {registration.player.full_name?.[0] || "P"}
+                          {registration.player?.full_name?.[0] || registration.player?.email?.[0] || "P"}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="font-medium">{registration.player.full_name}</p>
+                        <p className="font-medium">
+                          {registration.player?.full_name || registration.player?.email?.split('@')[0] || "Unknown Player"}
+                        </p>
                         {registration.partner && (
                           <p className="text-sm text-gray-600">
-                            Partner: {registration.partner.full_name}
+                            Partner: {registration.partner.full_name || registration.partner.email?.split('@')[0] || "Unknown"}
                           </p>
                         )}
                         <Badge 
                           variant={registration.payment_status === "completed" ? "default" : "secondary"}
                           className="text-xs"
                         >
-                          {registration.payment_status}
+                          {registration.payment_status || "pending"}
                         </Badge>
                       </div>
                     </div>
@@ -165,21 +199,21 @@ const TournamentDetail = () => {
                       <div className="flex justify-between items-center">
                         <div className="text-center">
                           <p className="font-medium">
-                            {match.team1_player1?.full_name}
+                            {match.team1_player1?.full_name || "TBD"}
                             {match.team1_player2 && ` & ${match.team1_player2.full_name}`}
                           </p>
                           {match.status === "completed" && (
-                            <span className="text-lg font-bold">{match.team1_sets_won}</span>
+                            <span className="text-lg font-bold">{match.team1_sets_won || 0}</span>
                           )}
                         </div>
                         <span className="text-gray-400 mx-4">VS</span>
                         <div className="text-center">
                           <p className="font-medium">
-                            {match.team2_player1?.full_name}
+                            {match.team2_player1?.full_name || "TBD"}
                             {match.team2_player2 && ` & ${match.team2_player2.full_name}`}
                           </p>
                           {match.status === "completed" && (
-                            <span className="text-lg font-bold">{match.team2_sets_won}</span>
+                            <span className="text-lg font-bold">{match.team2_sets_won || 0}</span>
                           )}
                         </div>
                       </div>
@@ -205,7 +239,7 @@ const TournamentDetail = () => {
             <CardContent className="space-y-3">
               <div>
                 <span className="font-medium">Organizer:</span>
-                <p className="text-gray-600">{tournament.organizer?.full_name}</p>
+                <p className="text-gray-600">{tournament.organizer?.full_name || "Unknown"}</p>
               </div>
               <div>
                 <span className="font-medium">Status:</span>
@@ -235,6 +269,10 @@ const TournamentDetail = () => {
                   <p className="text-green-600 font-semibold">${tournament.prize_pool}</p>
                 </div>
               )}
+              <div>
+                <span className="font-medium">Participants:</span>
+                <p className="text-gray-600">{participants?.length || 0} / {tournament.max_participants}</p>
+              </div>
             </CardContent>
           </Card>
         </div>

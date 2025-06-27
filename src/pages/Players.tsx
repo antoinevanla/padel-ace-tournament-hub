@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, Trophy, Calendar, Mail } from "lucide-react";
+import { Users, Star, Trophy, Calendar, Mail, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const Players = () => {
@@ -14,29 +14,80 @@ const Players = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const { data: players, isLoading } = useQuery({
-    queryKey: ["players"],
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
     queryFn: async () => {
-      console.log("Fetching players data...");
+      if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select(`
-          *,
-          tournament_registrations(
-            id,
-            payment_status,
-            registration_date,
-            tournament:tournaments(name, start_date)
-          )
-        `)
-        .order("created_at", { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching players:", error);
-        throw error;
-      }
-      console.log("Players data fetched:", data);
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
       return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: players, isLoading, error } = useQuery({
+    queryKey: ["players"],
+    queryFn: async () => {
+      console.log("Fetching players with tournament registrations...");
+      
+      // First get all profiles that have tournament registrations
+      const { data: registrations, error: regError } = await supabase
+        .from("tournament_registrations")
+        .select(`
+          player_id,
+          partner_id,
+          tournament_id,
+          payment_status,
+          registration_date,
+          tournament:tournaments(name, start_date, status)
+        `);
+      
+      if (regError) {
+        console.error("Error fetching registrations:", regError);
+        throw regError;
+      }
+
+      // Get unique player IDs from registrations
+      const playerIds = new Set();
+      registrations?.forEach(reg => {
+        if (reg.player_id) playerIds.add(reg.player_id);
+        if (reg.partner_id) playerIds.add(reg.partner_id);
+      });
+
+      if (playerIds.size === 0) {
+        console.log("No players found in registrations");
+        return [];
+      }
+
+      // Fetch profiles for these players
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", Array.from(playerIds));
+      
+      if (profileError) {
+        console.error("Error fetching profiles:", profileError);
+        throw profileError;
+      }
+
+      // Combine profiles with their tournament data
+      const playersWithTournaments = profiles?.map(profile => {
+        const playerRegistrations = registrations?.filter(reg => 
+          reg.player_id === profile.id || reg.partner_id === profile.id
+        ) || [];
+        
+        return {
+          ...profile,
+          tournament_registrations: playerRegistrations
+        };
+      }) || [];
+
+      console.log("Players with tournaments:", playersWithTournaments);
+      return playersWithTournaments;
     },
   });
 
@@ -57,6 +108,7 @@ const Players = () => {
     onSuccess: () => {
       toast({ title: "Skill level updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
     },
     onError: (error) => {
       console.error("Mutation error:", error);
@@ -114,12 +166,25 @@ const Players = () => {
     updateSkillLevelMutation.mutate({ playerId, skillLevel });
   };
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'organizer';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'organizer';
 
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center">Loading players...</div>
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin mr-2" />
+          <span>Loading players...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-600">
+          <p>Error loading players: {error.message}</p>
+        </div>
       </div>
     );
   }
@@ -179,6 +244,7 @@ const Players = () => {
                   <Select
                     value={player.skill_level?.toString() || "1"}
                     onValueChange={(value) => handleSkillLevelChange(player.id, value)}
+                    disabled={updateSkillLevelMutation.isPending}
                   >
                     <SelectTrigger className="w-24 h-6 text-xs">
                       <SelectValue />
@@ -215,9 +281,9 @@ const Players = () => {
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-gray-700">Recent Tournaments:</div>
                   {player.tournament_registrations.slice(0, 2).map((reg: any) => (
-                    <div key={reg.id} className="flex items-center justify-between text-xs">
+                    <div key={reg.tournament_id} className="flex items-center justify-between text-xs">
                       <span className="truncate max-w-[100px]" title={reg.tournament?.name}>
-                        {reg.tournament?.name}
+                        {reg.tournament?.name || 'Unknown Tournament'}
                       </span>
                       <Badge 
                         className={`${getPaymentStatusColor(reg.payment_status)} text-xs`}

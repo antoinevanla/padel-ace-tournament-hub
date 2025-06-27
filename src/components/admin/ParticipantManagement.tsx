@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, Mail } from "lucide-react";
+import { Users, Star, Mail, Loader2 } from "lucide-react";
 
 interface ParticipantManagementProps {
   tournamentId: string;
@@ -34,15 +34,46 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
     },
     onSuccess: () => {
       toast({ title: "Payment status updated successfully" });
-      // Invalidate multiple queries to ensure UI updates
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-tournaments"] });
     },
     onError: (error) => {
       console.error("Payment status update error:", error);
       toast({ 
         title: "Error updating payment status", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateSkillLevelMutation = useMutation({
+    mutationFn: async ({ playerId, skillLevel }: { playerId: string; skillLevel: number }) => {
+      console.log("Updating skill level for player:", playerId, "to level:", skillLevel);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ skill_level: skillLevel })
+        .eq("id", playerId);
+      
+      if (error) {
+        console.error("Error updating skill level:", error);
+        throw error;
+      }
+      console.log("Skill level updated successfully");
+    },
+    onSuccess: () => {
+      toast({ title: "Skill level updated successfully" });
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
+    },
+    onError: (error) => {
+      console.error("Skill level update error:", error);
+      toast({ 
+        title: "Error updating skill level", 
         description: error.message,
         variant: "destructive" 
       });
@@ -81,6 +112,12 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
   const handlePaymentStatusChange = (registrationId: string, newStatus: string) => {
     console.log("Handling payment status change:", registrationId, newStatus);
     updatePaymentStatusMutation.mutate({ registrationId, status: newStatus });
+  };
+
+  const handleSkillLevelChange = (playerId: string, newLevel: string) => {
+    const skillLevel = parseInt(newLevel);
+    console.log("Handling skill level change:", playerId, skillLevel);
+    updateSkillLevelMutation.mutate({ playerId, skillLevel });
   };
 
   console.log("ParticipantManagement - Tournament ID:", tournamentId);
@@ -128,10 +165,37 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
                   
                   <div className="flex flex-col items-end space-y-2">
                     {registration.player?.skill_level && (
-                      <Badge className={getSkillColor(registration.player.skill_level)}>
-                        <Star className="h-3 w-3 mr-1" />
-                        {getSkillLevel(registration.player.skill_level)}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getSkillColor(registration.player.skill_level)}>
+                          <Star className="h-3 w-3 mr-1" />
+                          {getSkillLevel(registration.player.skill_level)}
+                        </Badge>
+                        <Select
+                          value={registration.player.skill_level?.toString() || "1"}
+                          onValueChange={(value) => handleSkillLevelChange(registration.player.id, value)}
+                          disabled={updateSkillLevelMutation.isPending}
+                        >
+                          <SelectTrigger className="w-24 h-8 text-xs">
+                            {updateSkillLevelMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 (Beginner)</SelectItem>
+                            <SelectItem value="2">2 (Beginner)</SelectItem>
+                            <SelectItem value="3">3 (Beginner)</SelectItem>
+                            <SelectItem value="4">4 (Intermediate)</SelectItem>
+                            <SelectItem value="5">5 (Intermediate)</SelectItem>
+                            <SelectItem value="6">6 (Intermediate)</SelectItem>
+                            <SelectItem value="7">7 (Advanced)</SelectItem>
+                            <SelectItem value="8">8 (Advanced)</SelectItem>
+                            <SelectItem value="9">9 (Expert)</SelectItem>
+                            <SelectItem value="10">10 (Expert)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                     
                     <Select
@@ -140,7 +204,11 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
                       disabled={updatePaymentStatusMutation.isPending}
                     >
                       <SelectTrigger className="w-32">
-                        <SelectValue />
+                        {updatePaymentStatusMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <SelectValue />
+                        )}
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
