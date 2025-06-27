@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +51,7 @@ const Players = () => {
       }
 
       // Get unique player IDs from registrations
-      const playerIds = new Set();
+      const playerIds = new Set<string>();
       registrations?.forEach(reg => {
         if (reg.player_id) playerIds.add(reg.player_id);
         if (reg.partner_id) playerIds.add(reg.partner_id);
@@ -63,11 +62,14 @@ const Players = () => {
         return [];
       }
 
+      // Convert Set to Array and ensure type safety
+      const playerIdsArray = Array.from(playerIds);
+
       // Fetch profiles for these players
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("*")
-        .in("id", Array.from(playerIds));
+        .in("id", playerIdsArray);
       
       if (profileError) {
         console.error("Error fetching profiles:", profileError);
