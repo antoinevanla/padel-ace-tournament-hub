@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,8 +22,27 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // Reset selectedPartnerId when component mounts or tournament changes
+  useEffect(() => {
+    setSelectedPartnerId("");
+  }, [tournament?.id]);
+
   console.log("TournamentRegistration - User:", user);
   console.log("TournamentRegistration - Tournament:", tournament);
+
+  // Early return if no tournament data
+  if (!tournament) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Tournament Registration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600">Tournament information not available.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Get user profile to check admin status
   const { data: userProfile } = useQuery({
@@ -194,19 +214,6 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
         </CardHeader>
         <CardContent>
           <p className="text-gray-600">Please log in to register for this tournament.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!tournament) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Tournament Registration</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600">Tournament information not available.</p>
         </CardContent>
       </Card>
     );

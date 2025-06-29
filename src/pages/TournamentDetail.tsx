@@ -61,7 +61,7 @@ const TournamentDetail = () => {
       console.log("Participants data loaded:", data);
       return data || [];
     },
-    enabled: !!id,
+    enabled: !!id && !!tournament,
     retry: 2,
     retryDelay: 1000,
   });
@@ -91,12 +91,12 @@ const TournamentDetail = () => {
       console.log("Matches data loaded:", data);
       return data || [];
     },
-    enabled: !!id,
+    enabled: !!id && !!tournament,
     retry: 2,
     retryDelay: 1000,
   });
 
-  const isLoading = tournamentLoading || participantsLoading || matchesLoading;
+  const isLoading = tournamentLoading;
 
   if (isLoading) {
     return (
@@ -159,12 +159,14 @@ const TournamentDetail = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Tournament Registration Component with Error Boundary */}
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-2xl font-bold mb-4">Tournament Registration</h2>
-            <p className="text-gray-600 mb-4">Players can register for this tournament using the form below.</p>
-            <TournamentRegistration tournament={tournament} />
-          </div>
+          {/* Tournament Registration Component */}
+          {tournament && (
+            <div className="bg-white rounded-lg border p-6">
+              <h2 className="text-2xl font-bold mb-4">Tournament Registration</h2>
+              <p className="text-gray-600 mb-4">Players can register for this tournament using the form below.</p>
+              <TournamentRegistration tournament={tournament} />
+            </div>
+          )}
 
           {participants && participants.length > 0 && (
             <Card>
@@ -291,13 +293,13 @@ const TournamentDetail = () => {
               {tournament.entry_fee && tournament.entry_fee > 0 && (
                 <div>
                   <span className="font-medium">Entry Fee:</span>
-                  <p className="text-gray-600">${tournament.entry_fee}</p>
+                  <p className="text-gray-600">€{tournament.entry_fee}</p>
                 </div>
               )}
               {tournament.prize_pool && tournament.prize_pool > 0 && (
                 <div>
                   <span className="font-medium">Prize Pool:</span>
-                  <p className="text-green-600 font-semibold">${tournament.prize_pool}</p>
+                  <p className="text-green-600 font-semibold">€{tournament.prize_pool}</p>
                 </div>
               )}
               <div>
