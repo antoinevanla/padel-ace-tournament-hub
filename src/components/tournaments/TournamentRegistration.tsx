@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, User } from "lucide-react";
+import { Loader2, Users, User, Euro } from "lucide-react";
 
 interface TournamentRegistrationProps {
   tournament: any;
@@ -19,11 +18,27 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string | undefined>();
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
   const [isRegistering, setIsRegistering] = useState(false);
 
   console.log("TournamentRegistration - User:", user);
   console.log("TournamentRegistration - Tournament:", tournament);
+
+  // Get user profile to check admin status
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   // Query to get all available partners (other users)
   const { data: availablePartners, isLoading: partnersLoading } = useQuery({
@@ -64,6 +79,36 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
       return data;
     },
     enabled: !!user?.id && !!tournament?.id,
+  });
+
+  // Add payment status update mutation for admins
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ registrationId, status }: { registrationId: string; status: string }) => {
+      console.log("Updating payment status for registration:", registrationId, "to:", status);
+      
+      const { error } = await supabase
+        .from("tournament_registrations")
+        .update({ payment_status: status })
+        .eq("id", registrationId);
+      
+      if (error) {
+        console.error("Error updating payment status:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Payment status updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["user-registration"] });
+      queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
+    },
+    onError: (error: any) => {
+      console.error("Payment status update error:", error);
+      toast({ 
+        title: "Error updating payment status", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
   });
 
   const registerMutation = useMutation({
@@ -120,12 +165,23 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
     setIsRegistering(true);
     try {
       await registerMutation.mutateAsync({ 
-        partnerId: selectedPartnerId 
+        partnerId: selectedPartnerId || undefined 
       });
     } finally {
       setIsRegistering(false);
     }
   };
+
+  const handlePaymentStatusChange = (newStatus: string) => {
+    if (existingRegistration?.id) {
+      updatePaymentStatusMutation.mutate({ 
+        registrationId: existingRegistration.id, 
+        status: newStatus 
+      });
+    }
+  };
+
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'organizer';
 
   if (!user) {
     return (
@@ -194,9 +250,33 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
               <p className="text-gray-600">
                 You are already registered for this tournament.
               </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Payment Status: <span className="font-medium">{existingRegistration.payment_status}</span>
-              </p>
+              <div className="mt-4 space-y-2">
+                <div className="text-sm text-gray-500">
+                  Payment Status: 
+                  {isAdmin ? (
+                    <Select 
+                      value={existingRegistration.payment_status || "pending"} 
+                      onValueChange={handlePaymentStatusChange}
+                      disabled={updatePaymentStatusMutation.isPending}
+                    >
+                      <SelectTrigger className="w-32 h-8 text-xs ml-2 inline-flex">
+                        {updatePaymentStatusMutation.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <SelectValue />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="font-medium ml-1">{existingRegistration.payment_status}</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -226,14 +306,14 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
         <div>
           <Label htmlFor="partner-select">Partner (Optional)</Label>
           <Select 
-            value={selectedPartnerId || "none"} 
-            onValueChange={(value) => setSelectedPartnerId(value === "none" ? undefined : value)}
+            value={selectedPartnerId} 
+            onValueChange={setSelectedPartnerId}
           >
             <SelectTrigger id="partner-select">
               <SelectValue placeholder="Select a partner (optional)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No Partner</SelectItem>
+              <SelectItem value="">No Partner</SelectItem>
               {availablePartners?.map((partner) => (
                 <SelectItem key={partner.id} value={partner.id}>
                   {partner.full_name || partner.email?.split('@')[0] || 'Unknown Player'}
@@ -246,7 +326,10 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
         <div className="pt-4 border-t">
           <div className="flex justify-between items-center mb-4">
             <span className="font-medium">Entry Fee:</span>
-            <span className="text-lg font-bold">${tournament.entry_fee || 0}</span>
+            <span className="text-lg font-bold flex items-center">
+              <Euro className="h-4 w-4 mr-1" />
+              {tournament.entry_fee || 0}
+            </span>
           </div>
           
           <Button 

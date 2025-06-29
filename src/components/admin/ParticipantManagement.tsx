@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, Mail, Loader2 } from "lucide-react";
+import { Users, Star, Mail, Loader2, Euro } from "lucide-react";
 
 interface ParticipantManagementProps {
   tournamentId: string;

@@ -31,10 +31,21 @@ const Players = () => {
   const { data: players, isLoading, error } = useQuery({
     queryKey: ["players"],
     queryFn: async () => {
-      console.log("Fetching players with tournament registrations...");
+      console.log("Fetching all registered players...");
       
       try {
-        // First get all profiles that have tournament registrations
+        // Get all profiles first
+        const { data: profiles, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
+        
+        if (profileError) {
+          console.error("Error fetching profiles:", profileError);
+          throw profileError;
+        }
+
+        // Get tournament registrations for each player
         const { data: registrations, error: regError } = await supabase
           .from("tournament_registrations")
           .select(`
@@ -48,33 +59,7 @@ const Players = () => {
         
         if (regError) {
           console.error("Error fetching registrations:", regError);
-          throw regError;
-        }
-
-        // Get unique player IDs from registrations
-        const playerIds = new Set<string>();
-        registrations?.forEach(reg => {
-          if (reg.player_id) playerIds.add(reg.player_id);
-          if (reg.partner_id) playerIds.add(reg.partner_id);
-        });
-
-        if (playerIds.size === 0) {
-          console.log("No players found in registrations");
-          return [];
-        }
-
-        // Convert Set to Array and ensure type safety
-        const playerIdsArray = Array.from(playerIds);
-
-        // Fetch profiles for these players
-        const { data: profiles, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .in("id", playerIdsArray);
-        
-        if (profileError) {
-          console.error("Error fetching profiles:", profileError);
-          throw profileError;
+          // Don't throw error, just continue without tournament data
         }
 
         // Combine profiles with their tournament data
@@ -89,7 +74,7 @@ const Players = () => {
           };
         }) || [];
 
-        console.log("Players with tournaments:", playersWithTournaments);
+        console.log("All players:", playersWithTournaments);
         return playersWithTournaments;
       } catch (error) {
         console.error("Error in players query:", error);
@@ -350,7 +335,7 @@ const Players = () => {
         <div className="text-center py-12">
           <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">No players found</h3>
-          <p className="text-gray-600">Players will appear here as they register for tournaments.</p>
+          <p className="text-gray-600">Players will appear here when they register on the website.</p>
         </div>
       )}
     </div>
