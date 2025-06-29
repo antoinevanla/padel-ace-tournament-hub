@@ -140,7 +140,7 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
       });
       queryClient.invalidateQueries({ queryKey: ["user-registration"] });
       queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
-      setSelectedPartnerId(undefined);
+      setSelectedPartnerId("");
     },
     onError: (error: any) => {
       console.error("Registration error:", error);

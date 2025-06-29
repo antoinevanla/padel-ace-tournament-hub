@@ -3,15 +3,68 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Trophy, Users, Target, Star, Play, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const HeroSection = () => {
   const { user } = useAuth();
 
-  const stats = [
-    { label: "Active Tournaments", value: "12+", icon: Trophy },
-    { label: "Registered Players", value: "250+", icon: Users },
-    { label: "Matches Played", value: "800+", icon: Target },
-    { label: "Communities", value: "15+", icon: Star }
+  const { data: stats } = useQuery({
+    queryKey: ["hero-stats"],
+    queryFn: async () => {
+      try {
+        // Get active tournaments count
+        const { data: activeTournaments } = await supabase
+          .from("tournaments")
+          .select("id")
+          .eq("status", "active");
+
+        // Get unique registered players count
+        const { data: registrations } = await supabase
+          .from("tournament_registrations")
+          .select("player_id, partner_id");
+
+        const uniquePlayerIds = new Set<string>();
+        registrations?.forEach(reg => {
+          if (reg.player_id) uniquePlayerIds.add(reg.player_id);
+          if (reg.partner_id) uniquePlayerIds.add(reg.partner_id);
+        });
+
+        // Get completed matches count
+        const { data: completedMatches } = await supabase
+          .from("matches")
+          .select("id")
+          .eq("status", "completed");
+
+        // Get total tournaments count
+        const { data: allTournaments } = await supabase
+          .from("tournaments")
+          .select("id");
+
+        return {
+          activeTournaments: activeTournaments?.length || 0,
+          registeredPlayers: uniquePlayerIds.size || 0,
+          completedMatches: completedMatches?.length || 0,
+          totalTournaments: allTournaments?.length || 0
+        };
+      } catch (error) {
+        console.error("Error fetching hero stats:", error);
+        return {
+          activeTournaments: 0,
+          registeredPlayers: 0,
+          completedMatches: 0,
+          totalTournaments: 0
+        };
+      }
+    },
+    refetchInterval: 30000,
+  });
+
+  const displayStats = [
+    { label: "Active Tournaments", value: `${stats?.activeTournaments || 0}+`, icon: Trophy },
+    { label: "Registered Players", value: `${stats?.registeredPlayers || 0}+`, icon: Users },
+    { label: "Matches Played", value: `${stats?.completedMatches || 0}+`, icon: Target },
+    { label: "Total Tournaments", value: `${stats?.totalTournaments || 0}+`, icon: Star }
   ];
 
   return (
@@ -76,9 +129,9 @@ const HeroSection = () => {
             )}
           </div>
 
-          {/* Quick Stats */}
+          {/* Real-time Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
-            {stats.map((stat, index) => {
+            {displayStats.map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <div key={index} className="text-center">
