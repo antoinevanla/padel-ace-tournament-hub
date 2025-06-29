@@ -25,7 +25,7 @@ const TournamentDetail = () => {
           organizer:profiles(full_name)
         `)
         .eq("id", id)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error("Error fetching tournament:", error);
@@ -35,7 +35,7 @@ const TournamentDetail = () => {
       return data;
     },
     enabled: !!id,
-    retry: 3,
+    retry: 2,
     retryDelay: 1000,
   });
 
@@ -62,7 +62,7 @@ const TournamentDetail = () => {
       return data || [];
     },
     enabled: !!id,
-    retry: 3,
+    retry: 2,
     retryDelay: 1000,
   });
 
@@ -92,7 +92,7 @@ const TournamentDetail = () => {
       return data || [];
     },
     enabled: !!id,
-    retry: 3,
+    retry: 2,
     retryDelay: 1000,
   });
 
@@ -159,7 +159,12 @@ const TournamentDetail = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <TournamentRegistration tournament={tournament} />
+          {/* Tournament Registration Component with Error Boundary */}
+          <div className="bg-white rounded-lg border p-6">
+            <h2 className="text-2xl font-bold mb-4">Tournament Registration</h2>
+            <p className="text-gray-600 mb-4">Players can register for this tournament using the form below.</p>
+            <TournamentRegistration tournament={tournament} />
+          </div>
 
           {participants && participants.length > 0 && (
             <Card>
