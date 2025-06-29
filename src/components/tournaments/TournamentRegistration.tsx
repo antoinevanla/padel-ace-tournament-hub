@@ -1,26 +1,15 @@
 
 import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Users, Calendar, DollarSign, MapPin, Trophy } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-interface RegistrationFormData {
-  partner_id?: string;
-}
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Users, User } from "lucide-react";
 
 interface TournamentRegistrationProps {
   tournament: any;
@@ -30,329 +19,251 @@ const TournamentRegistration = ({ tournament }: TournamentRegistrationProps) => 
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string | undefined>();
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  console.log("TournamentRegistration - Tournament:", tournament);
   console.log("TournamentRegistration - User:", user);
+  console.log("TournamentRegistration - Tournament:", tournament);
 
+  // Query to get all available partners (other users)
   const { data: availablePartners, isLoading: partnersLoading } = useQuery({
     queryKey: ["available-partners"],
     queryFn: async () => {
-      if (!user?.id) return [];
-      
-      console.log("Fetching available partners for user:", user.id);
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .neq("id", user.id);
+        .neq("id", user?.id || ""); // Exclude current user
       
       if (error) {
         console.error("Error fetching partners:", error);
-        throw error;
+        return [];
       }
       console.log("Available partners:", data);
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
+  // Check if user is already registered
   const { data: existingRegistration, isLoading: registrationLoading } = useQuery({
-    queryKey: ["tournament-registration", tournament?.id, user?.id],
+    queryKey: ["user-registration", tournament?.id, user?.id],
     queryFn: async () => {
       if (!user?.id || !tournament?.id) return null;
       
-      console.log("Checking existing registration for tournament:", tournament.id, "user:", user.id);
       const { data, error } = await supabase
         .from("tournament_registrations")
-        .select(`
-          *,
-          partner:profiles!tournament_registrations_partner_id_fkey(full_name, email)
-        `)
+        .select("*")
         .eq("tournament_id", tournament.id)
         .eq("player_id", user.id)
         .maybeSingle();
       
       if (error) {
-        console.error("Error fetching existing registration:", error);
-        throw error;
+        console.error("Error checking registration:", error);
+        return null;
       }
-      console.log("Existing registration:", data);
       return data;
     },
     enabled: !!user?.id && !!tournament?.id,
   });
 
-  const { data: participantCount } = useQuery({
-    queryKey: ["tournament-participant-count", tournament?.id],
-    queryFn: async () => {
-      if (!tournament?.id) return 0;
-      
-      const { data, error } = await supabase
-        .from("tournament_registrations")
-        .select("id", { count: "exact" })
-        .eq("tournament_id", tournament.id);
-      
-      if (error) {
-        console.error("Error fetching participant count:", error);
-        return 0;
-      }
-      return data?.length || 0;
-    },
-    enabled: !!tournament?.id,
-  });
-
   const registerMutation = useMutation({
-    mutationFn: async (data: RegistrationFormData) => {
+    mutationFn: async ({ partnerId }: { partnerId?: string }) => {
       if (!user?.id || !tournament?.id) {
-        throw new Error("Missing user or tournament information");
+        throw new Error("User or tournament not found");
       }
 
-      console.log("Registering for tournament:", tournament.id, "with data:", data);
-      
       const registrationData = {
         tournament_id: tournament.id,
         player_id: user.id,
-        partner_id: data.partner_id || null,
-        payment_status: tournament.entry_fee > 0 ? "pending" : "completed",
+        partner_id: partnerId || null,
+        payment_status: "pending"
       };
 
-      console.log("Registration data:", registrationData);
-
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("tournament_registrations")
-        .insert([registrationData]);
-      
-      if (error) {
-        console.error("Registration error:", error);
-        throw error;
-      }
-      console.log("Registration successful");
+        .insert([registrationData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      toast({ title: "Registration successful!" });
-      queryClient.invalidateQueries({ queryKey: ["tournament-registration"] });
+      toast({
+        title: "Registration Successful!",
+        description: "You have been registered for the tournament.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["user-registration"] });
       queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
-      queryClient.invalidateQueries({ queryKey: ["tournament-participant-count"] });
-      queryClient.invalidateQueries({ queryKey: ["tournaments"] });
-      queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
-      setSelectedPartnerId("");
+      setSelectedPartnerId(undefined);
     },
     onError: (error: any) => {
-      console.error("Registration mutation error:", error);
-      toast({ 
-        title: "Registration failed", 
-        description: error.message || "An error occurred during registration",
-        variant: "destructive" 
+      console.error("Registration error:", error);
+      toast({
+        title: "Registration Failed",
+        description: error.message || "There was an error with your registration.",
+        variant: "destructive",
       });
     },
   });
 
-  const unregisterMutation = useMutation({
-    mutationFn: async () => {
-      if (!user?.id || !tournament?.id) {
-        throw new Error("Missing user or tournament information");
-      }
-
-      console.log("Unregistering from tournament:", tournament.id);
-      
-      const { error } = await supabase
-        .from("tournament_registrations")
-        .delete()
-        .eq("tournament_id", tournament.id)
-        .eq("player_id", user.id);
-      
-      if (error) {
-        console.error("Unregistration error:", error);
-        throw error;
-      }
-      console.log("Unregistration successful");
-    },
-    onSuccess: () => {
-      toast({ title: "Unregistered successfully!" });
-      queryClient.invalidateQueries({ queryKey: ["tournament-registration"] });
-      queryClient.invalidateQueries({ queryKey: ["tournament-participants"] });
-      queryClient.invalidateQueries({ queryKey: ["tournament-participant-count"] });
-      queryClient.invalidateQueries({ queryKey: ["tournaments"] });
-      queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
-    },
-    onError: (error: any) => {
-      console.error("Unregistration mutation error:", error);
-      toast({ 
-        title: "Unregistration failed", 
-        description: error.message || "An error occurred during unregistration",
-        variant: "destructive" 
+  const handleRegistration = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to register for tournaments.",
+        variant: "destructive",
       });
-    },
-  });
+      return;
+    }
 
-  const handleRegister = () => {
-    console.log("Handle register called with partner:", selectedPartnerId);
-    registerMutation.mutate({ partner_id: selectedPartnerId || undefined });
+    setIsRegistering(true);
+    try {
+      await registerMutation.mutateAsync({ 
+        partnerId: selectedPartnerId 
+      });
+    } finally {
+      setIsRegistering(false);
+    }
   };
-
-  const handleUnregister = () => {
-    console.log("Handle unregister called");
-    unregisterMutation.mutate();
-  };
-
-  if (!tournament) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-gray-600">Tournament information not available.</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (!user) {
     return (
       <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-gray-600">Please sign in to register for this tournament.</p>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            Tournament Registration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600">Please log in to register for this tournament.</p>
         </CardContent>
       </Card>
     );
   }
 
-  const isRegistrationOpen = tournament.registration_deadline ? 
-    new Date(tournament.registration_deadline) > new Date() : true;
-  const isTournamentFull = (participantCount || 0) >= (tournament.max_participants || 0);
-  const isLoading = registrationLoading || partnersLoading;
+  if (!tournament) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Tournament Registration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600">Tournament information not available.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (registrationLoading || partnersLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            Tournament Registration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span>Loading registration information...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (existingRegistration) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            Tournament Registration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <User className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-green-600 mb-2">Already Registered!</h3>
+              <p className="text-gray-600">
+                You are already registered for this tournament.
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Payment Status: <span className="font-medium">{existingRegistration.payment_status}</span>
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
-          <Trophy className="h-5 w-5 mr-2" />
-          {tournament.name || "Tournament"}
+          <Users className="h-5 w-5 mr-2" />
+          Tournament Registration
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {tournament.image_url && (
-          <img
-            src={tournament.image_url}
-            alt={tournament.name || "Tournament"}
-            className="w-full h-48 object-cover rounded-lg"
+        <div>
+          <Label htmlFor="player-name">Player Name</Label>
+          <Input
+            id="player-name"
+            value={user.user_metadata?.full_name || user.email || ""}
+            disabled
+            className="bg-gray-50"
           />
-        )}
+        </div>
 
-        {tournament.description && (
-          <p className="text-gray-600">{tournament.description}</p>
-        )}
+        <div>
+          <Label htmlFor="partner-select">Partner (Optional)</Label>
+          <Select 
+            value={selectedPartnerId || "none"} 
+            onValueChange={(value) => setSelectedPartnerId(value === "none" ? undefined : value)}
+          >
+            <SelectTrigger id="partner-select">
+              <SelectValue placeholder="Select a partner (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Partner</SelectItem>
+              {availablePartners?.map((partner) => (
+                <SelectItem key={partner.id} value={partner.id}>
+                  {partner.full_name || partner.email?.split('@')[0] || 'Unknown Player'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center text-gray-600">
-            <Calendar className="h-4 w-4 mr-2" />
-            {tournament.start_date && tournament.end_date ? (
-              `${new Date(tournament.start_date).toLocaleDateString()} - ${new Date(tournament.end_date).toLocaleDateString()}`
-            ) : "Dates TBD"}
+        <div className="pt-4 border-t">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-medium">Entry Fee:</span>
+            <span className="text-lg font-bold">${tournament.entry_fee || 0}</span>
           </div>
           
-          <div className="flex items-center text-gray-600">
-            <MapPin className="h-4 w-4 mr-2" />
-            {tournament.location || "Location TBD"}
-          </div>
-
-          <div className="flex items-center text-gray-600">
-            <Users className="h-4 w-4 mr-2" />
-            {participantCount || 0} / {tournament.max_participants || 0} participants
-          </div>
-
-          {tournament.entry_fee > 0 && (
-            <div className="flex items-center text-gray-600">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Entry fee: ${tournament.entry_fee}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium">Registration deadline:</span>
-          <Badge variant={isRegistrationOpen ? "default" : "secondary"}>
-            {tournament.registration_deadline ? 
-              new Date(tournament.registration_deadline).toLocaleDateString() : "TBD"}
-          </Badge>
-          {!isRegistrationOpen && <span className="text-red-500 text-sm">(Closed)</span>}
-        </div>
-
-        {tournament.prize_pool > 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <div className="flex items-center text-yellow-800">
-              <Trophy className="h-4 w-4 mr-2" />
-              Prize pool: ${tournament.prize_pool}
-            </div>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="text-center py-4">
-            <p className="text-gray-600">Loading registration status...</p>
-          </div>
-        ) : existingRegistration ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 className="font-semibold text-green-800 mb-2">You are registered!</h4>
-            {existingRegistration.partner && (
-              <p className="text-sm text-green-700">
-                Partner: {existingRegistration.partner.full_name || existingRegistration.partner.email}
-              </p>
-            )}
-            <p className="text-sm text-green-700">
-              Payment status: <Badge variant={existingRegistration.payment_status === "completed" ? "default" : "secondary"}>
-                {existingRegistration.payment_status || "pending"}
-              </Badge>
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={handleUnregister}
-              disabled={unregisterMutation.isPending}
-            >
-              {unregisterMutation.isPending ? "Unregistering..." : "Unregister"}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {isRegistrationOpen && !isTournamentFull ? (
+          <Button 
+            onClick={handleRegistration}
+            disabled={isRegistering || registerMutation.isPending}
+            className="w-full"
+          >
+            {isRegistering || registerMutation.isPending ? (
               <>
-                <div>
-                  <Label htmlFor="partner">Select Partner (Optional)</Label>
-                  <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a partner or play solo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">No partner (solo)</SelectItem>
-                      {availablePartners?.map((partner) => (
-                        <SelectItem key={partner.id} value={partner.id}>
-                          {partner.full_name || partner.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={handleRegister}
-                  disabled={registerMutation.isPending}
-                  className="w-full"
-                >
-                  {registerMutation.isPending ? "Registering..." : "Register for Tournament"}
-                </Button>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Registering...
               </>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-600">
-                  {!isRegistrationOpen 
-                    ? "Registration is closed"
-                    : "Tournament is full"
-                  }
-                </p>
-              </div>
+              "Register for Tournament"
             )}
-          </div>
-        )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
