@@ -11,40 +11,6 @@ import FeaturedTournament from "@/components/home/FeaturedTournament";
 import CTASection from "@/components/home/CTASection";
 
 const Index = () => {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["homepage-stats"],
-    queryFn: async () => {
-      console.log("Fetching homepage stats...");
-      
-      const [
-        { data: tournaments, error: tournamentsError },
-        { data: registrations, error: registrationsError },
-        { data: matches, error: matchesError },
-        { data: allTournaments, error: allTournamentsError }
-      ] = await Promise.all([
-        supabase.from("tournaments").select("id").eq("status", "active"),
-        supabase.from("tournament_registrations").select("id"),
-        supabase.from("matches").select("id").eq("status", "completed"),
-        supabase.from("tournaments").select("id")
-      ]);
-
-      if (tournamentsError || registrationsError || matchesError || allTournamentsError) {
-        console.error("Error fetching stats:", { tournamentsError, registrationsError, matchesError, allTournamentsError });
-        throw new Error("Failed to fetch homepage stats");
-      }
-
-      const result = {
-        activeTournaments: tournaments?.length || 0,
-        registeredPlayers: registrations?.length || 0,
-        completedMatches: matches?.length || 0,
-        totalTournaments: allTournaments?.length || 0
-      };
-
-      console.log("Homepage stats:", result);
-      return result;
-    },
-  });
-
   const { data: recentMatches, isLoading: matchesLoading } = useQuery({
     queryKey: ["recent-matches"],
     queryFn: async () => {
@@ -62,8 +28,61 @@ const Index = () => {
         .order("updated_at", { ascending: false })
         .limit(3);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching recent matches:", error);
+        return [];
+      }
+      return data ? data.map(match => ({
+        ...match,
+        team1_player1: match.team1_player1 || { full_name: "Unknown Player" },
+        team1_player2: match.team1_player2 || { full_name: "Unknown Player" },
+        team2_player1: match.team2_player1 || { full_name: "Unknown Player" },
+        team2_player2: match.team2_player2 || { full_name: "Unknown Player" },
+        tournament: match.tournament || { name: "Unknown Tournament", location: "Unknown" }
+      })) : [];
+    },
+  });
+
+  const { data: upcomingTournaments } = useQuery({
+    queryKey: ["upcoming-tournaments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tournaments")
+        .select(`
+          *,
+          registrations:tournament_registrations(count)
+        `)
+        .in("status", ["upcoming", "active"])
+        .order("start_date", { ascending: true })
+        .limit(4);
+      
+      if (error) {
+        console.error("Error fetching upcoming tournaments:", error);
+        return [];
+      }
       return data || [];
+    },
+  });
+
+  const { data: featuredTournament } = useQuery({
+    queryKey: ["featured-tournament"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tournaments")
+        .select(`
+          *,
+          registrations:tournament_registrations(count)
+        `)
+        .eq("status", "upcoming")
+        .order("start_date", { ascending: true })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching featured tournament:", error);
+        return null;
+      }
+      return data;
     },
   });
 
@@ -71,10 +90,16 @@ const Index = () => {
     <div className="min-h-screen">
       <HeroSection />
       <FeaturesSection />
-      <StatsSection stats={stats} isLoading={statsLoading} />
-      <UpcomingTournaments />
-      <FeaturedTournament />
-      <RecentResults matches={recentMatches} isLoading={matchesLoading} />
+      <StatsSection />
+      {upcomingTournaments && upcomingTournaments.length > 0 && (
+        <UpcomingTournaments tournaments={upcomingTournaments} />
+      )}
+      {featuredTournament && (
+        <FeaturedTournament tournament={featuredTournament} />
+      )}
+      {recentMatches && recentMatches.length > 0 && (
+        <RecentResults matches={recentMatches} />
+      )}
       <CTASection />
     </div>
   );
