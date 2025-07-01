@@ -22,7 +22,7 @@ const TournamentDetail = () => {
         .from("tournaments")
         .select(`
           *,
-          organizer:profiles(full_name)
+          organizer:profiles!tournaments_organizer_id_fkey(full_name)
         `)
         .eq("id", id)
         .maybeSingle();
@@ -159,7 +159,6 @@ const TournamentDetail = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Tournament Registration Component */}
           {tournament && (
             <div className="bg-white rounded-lg border p-6">
               <h2 className="text-2xl font-bold mb-4">Tournament Registration</h2>
@@ -192,7 +191,7 @@ const TournamentDetail = () => {
                         </p>
                         {registration.partner && (
                           <p className="text-sm text-gray-600">
-                            Partner: {registration.partner.full_name || registration.partner.email?.split('@')[0] || "Unknown"}
+                            Partner: {registration.partner?.full_name || registration.partner?.email?.split('@')[0] || "Unknown"}
                           </p>
                         )}
                         <Badge 
@@ -231,7 +230,7 @@ const TournamentDetail = () => {
                         <div className="text-center">
                           <p className="font-medium">
                             {match.team1_player1?.full_name || "TBD"}
-                            {match.team1_player2 && ` & ${match.team1_player2.full_name}`}
+                            {match.team1_player2?.full_name && ` & ${match.team1_player2.full_name}`}
                           </p>
                           {match.status === "completed" && (
                             <span className="text-lg font-bold">{match.team1_sets_won || 0}</span>
@@ -241,7 +240,7 @@ const TournamentDetail = () => {
                         <div className="text-center">
                           <p className="font-medium">
                             {match.team2_player1?.full_name || "TBD"}
-                            {match.team2_player2 && ` & ${match.team2_player2.full_name}`}
+                            {match.team2_player2?.full_name && ` & ${match.team2_player2.full_name}`}
                           </p>
                           {match.status === "completed" && (
                             <span className="text-lg font-bold">{match.team2_sets_won || 0}</span>

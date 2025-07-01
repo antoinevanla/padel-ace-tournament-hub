@@ -103,13 +103,12 @@ const Results = () => {
               <CardContent>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex justify-between items-center">
-                    {/* Team 1 */}
                     <div className={`text-center ${match.winner_team === 1 ? 'font-bold text-green-600' : ''}`}>
                       <div className="flex items-center space-x-2 mb-2">
                         <Users className="h-4 w-4" />
                         <span className="font-medium">
-                          {match.team1_player1?.full_name}
-                          {match.team1_player2 && ` & ${match.team1_player2.full_name}`}
+                          {match.team1_player1?.full_name || "Player 1"}
+                          {match.team1_player2?.full_name && ` & ${match.team1_player2.full_name}`}
                         </span>
                       </div>
                       <div className="text-2xl font-bold">
@@ -120,18 +119,16 @@ const Results = () => {
                       </div>
                     </div>
 
-                    {/* VS */}
                     <div className="text-2xl font-bold text-gray-400 mx-4">
                       VS
                     </div>
 
-                    {/* Team 2 */}
                     <div className={`text-center ${match.winner_team === 2 ? 'font-bold text-green-600' : ''}`}>
                       <div className="flex items-center space-x-2 mb-2">
                         <Users className="h-4 w-4" />
                         <span className="font-medium">
-                          {match.team2_player1?.full_name}
-                          {match.team2_player2 && ` & ${match.team2_player2.full_name}`}
+                          {match.team2_player1?.full_name || "Player 2"}
+                          {match.team2_player2?.full_name && ` & ${match.team2_player2.full_name}`}
                         </span>
                       </div>
                       <div className="text-2xl font-bold">

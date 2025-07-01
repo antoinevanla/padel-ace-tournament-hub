@@ -70,7 +70,6 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
         throw new Error("Need at least 2 qualified teams to generate knockout stage");
       }
 
-      // Determine the round name based on number of teams
       const getRoundName = (teamCount: number) => {
         if (teamCount === 2) return "Final";
         if (teamCount <= 4) return "Semi-Final";
@@ -82,7 +81,6 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
       const roundName = getRoundName(qualifiedTeams.length);
       const knockoutMatches = [];
       
-      // Simple pairing: team 1 vs team 2, team 3 vs team 4, etc.
       for (let i = 0; i < qualifiedTeams.length; i += 2) {
         if (qualifiedTeams[i + 1]) {
           knockoutMatches.push({
@@ -99,7 +97,6 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
 
       console.log("Creating knockout matches:", knockoutMatches);
 
-      // Insert knockout matches
       for (const match of knockoutMatches) {
         const { error } = await supabase
           .from("matches")
@@ -128,31 +125,29 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
     if (!matches) return {};
 
     const completedMatches = matches.filter(m => 
-      m.round_name.toLowerCase().includes('group') && m.status === 'completed'
+      m.round_name?.toLowerCase().includes('group') && m.status === 'completed'
     );
 
     const standings: Record<string, Record<string, TeamStats>> = {};
 
     completedMatches.forEach(match => {
-      const groupName = match.round_name;
+      const groupName = match.round_name || "Unknown Group";
       
       if (!standings[groupName]) {
         standings[groupName] = {};
       }
 
-      // Create team IDs and names
       const team1Id = `${match.team1_player1_id}-${match.team1_player2_id || ''}`;
       const team2Id = `${match.team2_player1_id}-${match.team2_player2_id || ''}`;
       
-      const team1Name = match.team1_player2 
-        ? `${match.team1_player1?.full_name} & ${match.team1_player2.full_name}`
+      const team1Name = match.team1_player2?.full_name 
+        ? `${match.team1_player1?.full_name || 'Player'} & ${match.team1_player2.full_name}`
         : match.team1_player1?.full_name || 'Team 1';
       
-      const team2Name = match.team2_player2 
-        ? `${match.team2_player1?.full_name} & ${match.team2_player2.full_name}`
+      const team2Name = match.team2_player2?.full_name 
+        ? `${match.team2_player1?.full_name || 'Player'} & ${match.team2_player2.full_name}`
         : match.team2_player1?.full_name || 'Team 2';
 
-      // Initialize teams if not exists
       if (!standings[groupName][team1Id]) {
         standings[groupName][team1Id] = {
           teamId: team1Id,
@@ -166,7 +161,7 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
           pointsScored: 0,
           pointsAgainst: 0,
           points: 0,
-          player1Id: match.team1_player1_id,
+          player1Id: match.team1_player1_id || '',
           player2Id: match.team1_player2_id || undefined,
         };
       }
@@ -184,12 +179,11 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
           pointsScored: 0,
           pointsAgainst: 0,
           points: 0,
-          player1Id: match.team2_player1_id,
+          player1Id: match.team2_player1_id || '',
           player2Id: match.team2_player2_id || undefined,
         };
       }
 
-      // Update stats
       const team1Stats = standings[groupName][team1Id];
       const team2Stats = standings[groupName][team2Id];
 
@@ -222,7 +216,6 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
       }
     });
 
-    // Sort teams within each group and apply manual qualifications
     const sortedStandings: Record<string, TeamStats[]> = {};
     
     Object.keys(standings).forEach(groupName => {
@@ -236,14 +229,12 @@ const QualificationManager = ({ tournamentId }: QualificationManagerProps) => {
         return bPointDiff - aPointDiff;
       });
 
-      // Apply manual qualifications or default logic
       teams.forEach((team, index) => {
         const manualStatus = teamQualifications[team.teamId];
         if (manualStatus) {
           team.qualified = manualStatus.qualified;
           team.eliminated = manualStatus.eliminated;
         } else {
-          // Default logic: top 2 qualify, bottom eliminated
           if (index < 2) {
             team.qualified = true;
           } else if (index === teams.length - 1) {
