@@ -34,7 +34,6 @@ const Players = () => {
       console.log("Fetching all registered players...");
       
       try {
-        // Get all profiles first
         const { data: profiles, error: profileError } = await supabase
           .from("profiles")
           .select("*")
@@ -45,7 +44,6 @@ const Players = () => {
           throw profileError;
         }
 
-        // Get tournament registrations for each player
         const { data: registrations, error: regError } = await supabase
           .from("tournament_registrations")
           .select(`
@@ -59,10 +57,8 @@ const Players = () => {
         
         if (regError) {
           console.error("Error fetching registrations:", regError);
-          // Don't throw error, just continue without tournament data
         }
 
-        // Combine profiles with their tournament data
         const playersWithTournaments = profiles?.map(profile => {
           const playerRegistrations = registrations?.filter(reg => 
             reg.player_id === profile.id || reg.partner_id === profile.id

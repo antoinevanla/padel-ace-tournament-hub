@@ -28,7 +28,6 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
         throw new Error("Invalid registration ID or status");
       }
 
-      // Validate the status
       const validStatuses = ["pending", "completed", "failed"];
       if (!validStatuses.includes(status)) {
         throw new Error("Invalid payment status");
@@ -53,7 +52,6 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
       console.log("Payment status update successful:", data);
       toast({ title: "Payment status updated successfully" });
       
-      // Invalidate all relevant queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["tournament-registration"] });
@@ -98,7 +96,6 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
       console.log("Skill level update successful:", data);
       toast({ title: "Skill level updated successfully" });
       
-      // Invalidate all relevant queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ["tournament-participants", tournamentId] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
       queryClient.invalidateQueries({ queryKey: ["homepage-stats"] });
@@ -301,7 +298,7 @@ const ParticipantManagement = ({ tournamentId, participants }: ParticipantManage
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">
-                      Registered: {new Date(registration.registration_date).toLocaleDateString()}
+                      Registered: {new Date(registration.registration_date || registration.created_at).toLocaleDateString()}
                     </span>
                     <Badge 
                       className={getPaymentStatusColor(registration.payment_status || "pending")}

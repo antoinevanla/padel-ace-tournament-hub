@@ -29,7 +29,7 @@ const PlayerDashboard = () => {
         .order("scheduled_time", { ascending: true });
       
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!user?.id,
   });
@@ -74,7 +74,7 @@ const PlayerDashboard = () => {
 
   const upcomingMatches = playerMatches?.filter(m => m.status === "scheduled") || [];
   const recentMatches = playerMatches?.filter(m => m.status === "completed").slice(0, 5) || [];
-  const activeTournaments = tournamentStats?.filter(t => t.tournament.status === "active").length || 0;
+  const activeTournaments = tournamentStats?.filter(t => t.tournament?.status === "active").length || 0;
 
   if (!user) {
     return (
@@ -91,7 +91,6 @@ const PlayerDashboard = () => {
         <p className="text-gray-600">Track your matches and tournament progress</p>
       </div>
 
-      {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardContent className="pt-6">
@@ -145,7 +144,6 @@ const PlayerDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Upcoming Matches */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -162,23 +160,23 @@ const PlayerDashboard = () => {
                   <div key={match.id} className="border rounded-lg p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
-                        <p className="font-medium">{match.tournament.name}</p>
-                        <p className="text-sm text-gray-600">{match.round_name}</p>
+                        <p className="font-medium">{match.tournament?.name || "Tournament"}</p>
+                        <p className="text-sm text-gray-600">{match.round_name || "Round"}</p>
                       </div>
-                      <Badge className={getStatusColor(match.status)}>
-                        {match.status}
+                      <Badge className={getStatusColor(match.status || "scheduled")}>
+                        {match.status || "scheduled"}
                       </Badge>
                     </div>
                     
                     <div className="text-sm mb-3">
                       <span className="font-medium">
-                        {match.team1_player1?.full_name}
-                        {match.team1_player2 && ` & ${match.team1_player2.full_name}`}
+                        {match.team1_player1?.full_name || "Player 1"}
+                        {match.team1_player2?.full_name && ` & ${match.team1_player2.full_name}`}
                       </span>
                       <span className="mx-2 text-gray-400">VS</span>
                       <span className="font-medium">
-                        {match.team2_player1?.full_name}
-                        {match.team2_player2 && ` & ${match.team2_player2.full_name}`}
+                        {match.team2_player1?.full_name || "Player 2"}
+                        {match.team2_player2?.full_name && ` & ${match.team2_player2.full_name}`}
                       </span>
                     </div>
 
@@ -203,7 +201,6 @@ const PlayerDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Results */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -222,8 +219,8 @@ const PlayerDashboard = () => {
                     <div key={match.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
-                          <p className="font-medium">{match.tournament.name}</p>
-                          <p className="text-sm text-gray-600">{match.round_name}</p>
+                          <p className="font-medium">{match.tournament?.name || "Tournament"}</p>
+                          <p className="text-sm text-gray-600">{match.round_name || "Round"}</p>
                         </div>
                         <Badge variant={result?.won ? "default" : "secondary"}>
                           {result?.won ? "Won" : "Lost"}
@@ -232,13 +229,13 @@ const PlayerDashboard = () => {
                       
                       <div className="text-sm mb-2">
                         <span className="font-medium">
-                          {match.team1_player1?.full_name}
-                          {match.team1_player2 && ` & ${match.team1_player2.full_name}`}
+                          {match.team1_player1?.full_name || "Player 1"}
+                          {match.team1_player2?.full_name && ` & ${match.team1_player2.full_name}`}
                         </span>
                         <span className="mx-2 text-gray-400">VS</span>
                         <span className="font-medium">
-                          {match.team2_player1?.full_name}
-                          {match.team2_player2 && ` & ${match.team2_player2.full_name}`}
+                          {match.team2_player1?.full_name || "Player 2"}
+                          {match.team2_player2?.full_name && ` & ${match.team2_player2.full_name}`}
                         </span>
                       </div>
 

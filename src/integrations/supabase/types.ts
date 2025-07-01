@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       matches: {
         Row: {
+          court_number: number | null
           created_at: string | null
           id: string
           round_name: string | null
@@ -19,14 +20,17 @@ export type Database = {
           status: string | null
           team1_player1_id: string | null
           team1_player2_id: string | null
+          team1_score: number | null
           team1_sets_won: number | null
           team2_player1_id: string | null
           team2_player2_id: string | null
+          team2_score: number | null
           team2_sets_won: number | null
           tournament_id: string | null
-          winner_team: string | null
+          winner_team: number | null
         }
         Insert: {
+          court_number?: number | null
           created_at?: string | null
           id?: string
           round_name?: string | null
@@ -35,14 +39,17 @@ export type Database = {
           status?: string | null
           team1_player1_id?: string | null
           team1_player2_id?: string | null
+          team1_score?: number | null
           team1_sets_won?: number | null
           team2_player1_id?: string | null
           team2_player2_id?: string | null
+          team2_score?: number | null
           team2_sets_won?: number | null
           tournament_id?: string | null
-          winner_team?: string | null
+          winner_team?: number | null
         }
         Update: {
+          court_number?: number | null
           created_at?: string | null
           id?: string
           round_name?: string | null
@@ -51,12 +58,14 @@ export type Database = {
           status?: string | null
           team1_player1_id?: string | null
           team1_player2_id?: string | null
+          team1_score?: number | null
           team1_sets_won?: number | null
           team2_player1_id?: string | null
           team2_player2_id?: string | null
+          team2_score?: number | null
           team2_sets_won?: number | null
           tournament_id?: string | null
-          winner_team?: string | null
+          winner_team?: number | null
         }
         Relationships: [
           {
@@ -101,24 +110,30 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          created_at: string | null
           email: string | null
           full_name: string | null
           id: string
           role: string | null
+          skill_level: number | null
         }
         Insert: {
           avatar_url?: string | null
+          created_at?: string | null
           email?: string | null
           full_name?: string | null
           id: string
           role?: string | null
+          skill_level?: number | null
         }
         Update: {
           avatar_url?: string | null
+          created_at?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
           role?: string | null
+          skill_level?: number | null
         }
         Relationships: []
       }
@@ -129,6 +144,7 @@ export type Database = {
           partner_id: string | null
           payment_status: string | null
           player_id: string | null
+          registration_date: string | null
           tournament_id: string | null
         }
         Insert: {
@@ -137,6 +153,7 @@ export type Database = {
           partner_id?: string | null
           payment_status?: string | null
           player_id?: string | null
+          registration_date?: string | null
           tournament_id?: string | null
         }
         Update: {
@@ -145,6 +162,7 @@ export type Database = {
           partner_id?: string | null
           payment_status?: string | null
           player_id?: string | null
+          registration_date?: string | null
           tournament_id?: string | null
         }
         Relationships: [
