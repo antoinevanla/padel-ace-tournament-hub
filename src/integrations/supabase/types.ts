@@ -11,91 +11,54 @@ export type Database = {
     Tables: {
       matches: {
         Row: {
-          court_number: number | null
-          created_at: string
+          created_at: string | null
           id: string
-          round_name: string
+          round_name: string | null
           scheduled_time: string | null
-          status: Database["public"]["Enums"]["match_status"] | null
-          team1_player1_id: string
+          score_details: Json | null
+          status: string | null
+          team1_player1_id: string | null
           team1_player2_id: string | null
-          team1_score: number | null
           team1_sets_won: number | null
-          team2_player1_id: string
+          team2_player1_id: string | null
           team2_player2_id: string | null
-          team2_score: number | null
           team2_sets_won: number | null
-          tournament_id: string
-          updated_at: string
-          winner_team: number | null
+          tournament_id: string | null
+          winner_team: string | null
         }
         Insert: {
-          court_number?: number | null
-          created_at?: string
+          created_at?: string | null
           id?: string
-          round_name: string
+          round_name?: string | null
           scheduled_time?: string | null
-          status?: Database["public"]["Enums"]["match_status"] | null
-          team1_player1_id: string
+          score_details?: Json | null
+          status?: string | null
+          team1_player1_id?: string | null
           team1_player2_id?: string | null
-          team1_score?: number | null
           team1_sets_won?: number | null
-          team2_player1_id: string
+          team2_player1_id?: string | null
           team2_player2_id?: string | null
-          team2_score?: number | null
           team2_sets_won?: number | null
-          tournament_id: string
-          updated_at?: string
-          winner_team?: number | null
+          tournament_id?: string | null
+          winner_team?: string | null
         }
         Update: {
-          court_number?: number | null
-          created_at?: string
+          created_at?: string | null
           id?: string
-          round_name?: string
+          round_name?: string | null
           scheduled_time?: string | null
-          status?: Database["public"]["Enums"]["match_status"] | null
-          team1_player1_id?: string
+          score_details?: Json | null
+          status?: string | null
+          team1_player1_id?: string | null
           team1_player2_id?: string | null
-          team1_score?: number | null
           team1_sets_won?: number | null
-          team2_player1_id?: string
+          team2_player1_id?: string | null
           team2_player2_id?: string | null
-          team2_score?: number | null
           team2_sets_won?: number | null
-          tournament_id?: string
-          updated_at?: string
-          winner_team?: number | null
+          tournament_id?: string | null
+          winner_team?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "matches_team1_player1_id_fkey"
-            columns: ["team1_player1_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_team1_player2_id_fkey"
-            columns: ["team1_player2_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_team2_player1_id_fkey"
-            columns: ["team2_player1_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "matches_team2_player2_id_fkey"
-            columns: ["team2_player2_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "matches_tournament_id_fkey"
             columns: ["tournament_id"]
@@ -133,102 +96,58 @@ export type Database = {
           tournament_id?: string | null
           uploaded_by?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "media_gallery_tournament_id_fkey"
-            columns: ["tournament_id"]
-            isOneToOne: false
-            referencedRelation: "tournaments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "media_gallery_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           avatar_url: string | null
-          created_at: string
-          date_of_birth: string | null
-          email: string
+          email: string | null
           full_name: string | null
           id: string
-          phone: string | null
-          role: Database["public"]["Enums"]["user_role"] | null
-          skill_level: number | null
-          updated_at: string
+          role: string | null
         }
         Insert: {
           avatar_url?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          email: string
+          email?: string | null
           full_name?: string | null
           id: string
-          phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
-          skill_level?: number | null
-          updated_at?: string
+          role?: string | null
         }
         Update: {
           avatar_url?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          email?: string
+          email?: string | null
           full_name?: string | null
           id?: string
-          phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"] | null
-          skill_level?: number | null
-          updated_at?: string
+          role?: string | null
         }
         Relationships: []
       }
       tournament_registrations: {
         Row: {
+          created_at: string | null
           id: string
           partner_id: string | null
           payment_status: string | null
-          player_id: string
-          registration_date: string
-          tournament_id: string
+          player_id: string | null
+          tournament_id: string | null
         }
         Insert: {
+          created_at?: string | null
           id?: string
           partner_id?: string | null
           payment_status?: string | null
-          player_id: string
-          registration_date?: string
-          tournament_id: string
+          player_id?: string | null
+          tournament_id?: string | null
         }
         Update: {
+          created_at?: string | null
           id?: string
           partner_id?: string | null
           payment_status?: string | null
-          player_id?: string
-          registration_date?: string
-          tournament_id?: string
+          player_id?: string | null
+          tournament_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "tournament_registrations_partner_id_fkey"
-            columns: ["partner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tournament_registrations_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tournament_registrations_tournament_id_fkey"
             columns: ["tournament_id"]
@@ -240,7 +159,7 @@ export type Database = {
       }
       tournaments: {
         Row: {
-          created_at: string
+          created_at: string | null
           description: string | null
           end_date: string
           entry_fee: number | null
@@ -249,15 +168,14 @@ export type Database = {
           location: string
           max_participants: number
           name: string
-          organizer_id: string
+          organizer_id: string | null
           prize_pool: number | null
-          registration_deadline: string
+          registration_deadline: string | null
           start_date: string
-          status: Database["public"]["Enums"]["tournament_status"] | null
-          updated_at: string
+          status: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           end_date: string
           entry_fee?: number | null
@@ -266,15 +184,14 @@ export type Database = {
           location: string
           max_participants: number
           name: string
-          organizer_id: string
+          organizer_id?: string | null
           prize_pool?: number | null
-          registration_deadline: string
+          registration_deadline?: string | null
           start_date: string
-          status?: Database["public"]["Enums"]["tournament_status"] | null
-          updated_at?: string
+          status?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           end_date?: string
           entry_fee?: number | null
@@ -283,22 +200,13 @@ export type Database = {
           location?: string
           max_participants?: number
           name?: string
-          organizer_id?: string
+          organizer_id?: string | null
           prize_pool?: number | null
-          registration_deadline?: string
+          registration_deadline?: string | null
           start_date?: string
-          status?: Database["public"]["Enums"]["tournament_status"] | null
-          updated_at?: string
+          status?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "tournaments_organizer_id_fkey"
-            columns: ["organizer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

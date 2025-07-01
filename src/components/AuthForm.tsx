@@ -21,7 +21,9 @@ export const AuthForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      console.log("Starting sign up process for:", email);
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -32,23 +34,27 @@ export const AuthForm = () => {
         },
       });
 
+      console.log("Sign up response:", { data, error });
+
       if (error) {
+        console.error("Sign up error:", error);
         toast({
           title: "Sign up failed",
           description: error.message,
           variant: "destructive",
         });
       } else {
+        console.log("Sign up successful:", data);
         toast({
           title: "Sign up successful!",
-          description: "Please check your email to confirm your account.",
+          description: "Please check your email to confirm your account. If you don't receive an email, check your spam folder.",
         });
         setEmail("");
         setPassword("");
         setFullName("");
       }
     } catch (error) {
-      console.error("Sign up error:", error);
+      console.error("Unexpected sign up error:", error);
       toast({
         title: "An error occurred",
         description: "Please try again later.",
@@ -64,25 +70,31 @@ export const AuthForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("Starting sign in process for:", email);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log("Sign in response:", { data, error });
+
       if (error) {
+        console.error("Sign in error:", error);
         toast({
           title: "Sign in failed",
           description: error.message,
           variant: "destructive",
         });
       } else {
+        console.log("Sign in successful:", data);
         toast({
           title: "Welcome back!",
           description: "You have been signed in successfully.",
         });
       }
     } catch (error) {
-      console.error("Sign in error:", error);
+      console.error("Unexpected sign in error:", error);
       toast({
         title: "An error occurred",
         description: "Please try again later.",
@@ -117,6 +129,7 @@ export const AuthForm = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    placeholder="Enter your email"
                   />
                 </div>
                 <div className="space-y-2">
@@ -127,6 +140,7 @@ export const AuthForm = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    placeholder="Enter your password"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
@@ -146,6 +160,7 @@ export const AuthForm = () => {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
+                    placeholder="Enter your full name"
                   />
                 </div>
                 <div className="space-y-2">
@@ -156,6 +171,7 @@ export const AuthForm = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    placeholder="Enter your email"
                   />
                 </div>
                 <div className="space-y-2">
@@ -167,6 +183,7 @@ export const AuthForm = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
+                    placeholder="Create a password (min 6 characters)"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>

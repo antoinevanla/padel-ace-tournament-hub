@@ -26,6 +26,11 @@ const Auth = () => {
     );
   }
 
+  // Don't render the auth form if user is already logged in
+  if (user) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <AuthForm />
